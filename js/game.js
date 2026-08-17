@@ -102,7 +102,7 @@
       this.groundBase = Math.round(h * 0.885);
       this.depth = Math.max(180, this.groundBase - this.horizon);
       this.laneHalf = Math.min(w * 0.225, h * 0.255, 245);
-      this.playerH = this.depth * 0.50;
+      this.playerH = Math.min(this.depth * 0.48, this.w * 0.42);
       this.playerW = this.playerH * (160 / 215);
       this.maxJumpY = this.depth * 0.42;
       this.jumpDuration = 0.62;
@@ -133,6 +133,10 @@
       if (action === 'pause') {
         if (this.state === 'running') this.pauseGame();
         else if (this.state === 'paused') this.resumeGame();
+        return;
+      }
+      if (this.state === 'paused' && (action === 'jump' || action === 'start')) {
+        this.resumeGame();
         return;
       }
       if (action === 'menu') {

@@ -400,11 +400,12 @@
 
   async function preload(defs) {
     const urls = [];
-    for (const key of Object.keys(defs)) {
-      const value = defs[key];
-      if (Array.isArray(value)) urls.push(...value);
-      else urls.push(value);
-    }
+    const collect = (value) => {
+      if (typeof value === 'string') urls.push(value);
+      else if (Array.isArray(value)) value.forEach(collect);
+      else if (value && typeof value === 'object') Object.values(value).forEach(collect);
+    };
+    Object.values(defs).forEach(collect);
     const unique = [...new Set(urls)];
     const images = await Promise.all(unique.map((url) => {
       if (cache.has(url)) return cache.get(url);

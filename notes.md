@@ -12,3 +12,11 @@
 - Added `js/game.js`: pseudo-3D projection engine, three-lane movement, jump/slide physics, spawning waves, collision + near-miss scoring, coin magnet power-up, fireworks milestones, particle effects and title attract mode.
 - Added `js/audio.js`: generated Web Audio SFX and a lightweight synthwave beat (no external audio files).
 - Added `js/main.js`: keyboard, swipe, on-screen touch buttons, pause/mute/menu wiring and DOM HUD updates.
+
+## Fix pass 1
+- Fixed SVG preload flattening for nested stickman sprite sets (previously only flat URLs were loaded).
+- Fixed nested stickman sprite lookup (`run`, `dodgeL/R`, `jump`, `slide`, `defeated`).
+- Fixed slide-gate and sneaker SVG text elements in the asset builder.
+- Corrected dodge-wall asset key mapping, sneaker jump reset, magnet pull, game-over record detection, and menu/return-to-title flow.
+- Improved HUD flex layout so touch controls stay bottom-anchored; power-up tag is now absolutely positioned above touch controls.
+- Tuned player sprite height for small portrait screens and ignored key auto-repeat.

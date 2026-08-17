@@ -51,14 +51,14 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 4;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-right, 0px) + 14px) calc(env(safe-area-inset-bottom, 0px) + 12px) calc(env(safe-area-inset-left, 0px) + 14px);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   opacity: 0;
   transition: opacity .35s ease;
 }
 #hud.visible { opacity: 1; }
+#hud .hud-bottom { margin-top: auto; }
 .hud-top {
   display: flex;
   align-items: flex-start;
@@ -129,6 +129,9 @@ body {
   gap: 8px;
   pointer-events: auto;
 }
+@media (pointer: fine) and (min-width: 901px) {
+  .hud-bottom { justify-content: center; }
+}
 .touch-btn {
   width: 66px;
   height: 66px;
@@ -177,13 +180,21 @@ body {
 #controlHint.show { opacity: 1; }
 .powerup-tag {
   display: none;
-  align-self: flex-end;
-  margin-bottom: 2px;
+  position: absolute;
+  right: calc(env(safe-area-inset-right, 0px) + 14px);
+  bottom: 12px;
   color: var(--gold);
   font-weight: 900;
   font-size: 13px;
   letter-spacing: .16em;
   text-shadow: 0 0 16px rgba(255, 209, 102, .8);
+  background: rgba(9, 14, 30, .55);
+  padding: 7px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 209, 102, .4);
+}
+@media (pointer: coarse), (max-width: 900px) {
+  .powerup-tag { bottom: calc(env(safe-area-inset-bottom, 0px) + 86px); }
 }
 .powerup-tag.show { display: block; animation: powerBlink .5s ease-in-out infinite alternate; }
 @keyframes powerBlink { from { opacity: .65; } to { opacity: 1; } }

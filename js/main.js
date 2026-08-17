@@ -106,6 +106,7 @@
         if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(code)) {
           e.preventDefault();
         }
+        if (e.repeat) return;
         if (code === 'Space' || code === 'ArrowUp' || code === 'KeyW') this.game.input('jump');
         else if (code === 'ArrowDown' || code === 'KeyS') this.game.input('slide');
         else if (code === 'ArrowLeft' || code === 'KeyA') this.game.input('left');

@@ -297,6 +297,15 @@ body {
   box-shadow: 0 0 30px rgba(255, 93, 143, .3), inset 0 0 20px rgba(255, 93, 143, .1);
 }
 .primary-btn.hot:hover { background: rgba(255, 93, 143, .2); }
+.title-best {
+  margin-top: 14px;
+  color: #9fb7d8;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.title-best b { color: var(--gold); text-shadow: 0 0 14px rgba(255, 209, 102, .55); }
 .hint-line {
   margin-top: 16px;
   color: #7f93b5;

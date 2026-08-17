@@ -38,3 +38,8 @@
 - Added controls and feature overview to `README.md`.
 - Ran headless Chrome smoke tests across five viewports; no console errors, favicon 404 eliminated, 60 FPS observed on a 390×844 mobile viewport.
 - Slightly tightened same-lane collision threshold to reduce side-clip collisions.
+
+## Polish pass 4
+- Title attract-mode actions are now silent (no random jump sounds after returning to the menu).
+- Added personal-best preview to the title screen.
+- Re-tested 320px title layout after the addition.

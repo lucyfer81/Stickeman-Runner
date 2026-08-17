@@ -161,16 +161,16 @@
       else if (action === 'slide') this.startSlide();
     }
 
-    changeLane(dir) {
+    changeLane(dir, silent = false) {
       const p = this.player;
       const target = clamp(p.targetLane + dir, -1, 1);
       if (target !== p.targetLane) {
         p.targetLane = target;
-        this.audio.lane();
+        if (!silent) this.audio.lane();
       }
     }
 
-    startJump() {
+    startJump(silent = false) {
       const p = this.player;
       if (p.sliding) p.sliding = false;
       if (p.grounded) {
@@ -179,22 +179,22 @@
         p.jumpsUsed = 1;
         p.slideTimer = 0;
         this.spawnDust(7);
-        this.audio.jump();
+        if (!silent) this.audio.jump();
       } else if (p.jumpsUsed < p.maxJumps) {
         p.vy = this.jumpVelocity * 0.86;
         p.jumpsUsed += 1;
         this.spawnAirRing();
-        this.audio.doubleJump();
+        if (!silent) this.audio.doubleJump();
       }
     }
 
-    startSlide() {
+    startSlide(silent = false) {
       const p = this.player;
       if (!p.grounded || p.sliding) return;
       p.sliding = true;
       p.slideTimer = 0.72;
       this.spawnDust(10);
-      this.audio.slide();
+      if (!silent) this.audio.slide();
     }
 
     startRun() {
@@ -314,9 +314,9 @@
       if (this.attractTimer <= 0) {
         this.attractTimer = rand(0.9, 1.8);
         const roll = Math.random();
-        if (roll < 0.34) this.startJump();
-        else if (roll < 0.56) this.startSlide();
-        else this.changeLane(pick([-1, 1]));
+        if (roll < 0.34) this.startJump(true);
+        else if (roll < 0.56) this.startSlide(true);
+        else this.changeLane(pick([-1, 1]), true);
       }
       this.spawnDust(p.grounded ? 1 : 0, 0.25);
     }

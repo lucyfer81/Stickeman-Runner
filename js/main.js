@@ -21,6 +21,7 @@
       this.muteIcons = document.querySelectorAll('.mute-icon');
       this.pauseBars = $('pauseBars');
       this.pausePlay = $('pausePlay');
+      this.titleBest = $('titleBest');
 
       this.finalScore = $('finalScore');
       this.finalDistance = $('finalDistance');
@@ -33,6 +34,7 @@
     }
 
     startRun() {
+      if (this.titleBest) this.titleBest.textContent = Math.floor(this.game.best).toLocaleString();
       this.titleScreen.classList.add('hidden');
       this.pauseScreen.classList.add('hidden');
       this.gameOverScreen.classList.add('hidden');
@@ -44,6 +46,7 @@
     }
 
     showTitle() {
+      if (this.titleBest) this.titleBest.textContent = Math.floor(this.game.best).toLocaleString();
       this.titleScreen.classList.remove('hidden');
       this.pauseScreen.classList.add('hidden');
       this.gameOverScreen.classList.add('hidden');

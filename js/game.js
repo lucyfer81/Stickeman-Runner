@@ -529,7 +529,7 @@
       // Obstacles
       for (const ob of this.obstacles) {
         if (ob.passed || ob.smashed || ob.z > COLLIDE_Z || ob.z < COLLIDE_BEHIND) continue;
-        const sameLane = Math.abs(ob.lane - p.lane) < 0.56;
+        const sameLane = Math.abs(ob.lane - p.lane) < 0.5;
 
         if (ob.kind === 'hurdle') {
           if (sameLane && jumpNorm < OBSTACLE_DEFS.hurdle.clearY) {

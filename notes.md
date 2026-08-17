@@ -33,3 +33,8 @@
 - Added an inline SVG favicon (no 404, no bitmap icon).
 - Fixed hidden overlay descendants from intercepting taps after their screen was dismissed.
 - Verified with headless Chrome at desktop (1440×900), phone (390×844) and small phone (320×568) sizes: title, HUD, touch buttons, pause, game-over and restart flows all work without console errors.
+
+## Documentation & final browser pass
+- Added controls and feature overview to `README.md`.
+- Ran headless Chrome smoke tests across five viewports; no console errors, favicon 404 eliminated, 60 FPS observed on a 390×844 mobile viewport.
+- Slightly tightened same-lane collision threshold to reduce side-clip collisions.

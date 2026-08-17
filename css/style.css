@@ -219,6 +219,7 @@ body {
   transition: opacity .3s ease;
 }
 .overlay.hidden { opacity: 0; pointer-events: none; }
+.overlay.hidden * { pointer-events: none !important; }
 .title-badge {
   font-size: clamp(10px, 2.2vw, 15px);
   letter-spacing: .55em;

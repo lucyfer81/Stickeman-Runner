@@ -28,3 +28,8 @@
 - Added soft shadows under obstacles and a taller opening under slide gates.
 - Added haptic vibration on coin, power-up and crash for supported phones.
 - Fallen stickman stays visible behind the game-over panel.
+
+## Fix pass 3 (browser-tested)
+- Added an inline SVG favicon (no 404, no bitmap icon).
+- Fixed hidden overlay descendants from intercepting taps after their screen was dismissed.
+- Verified with headless Chrome at desktop (1440×900), phone (390×844) and small phone (320×568) sizes: title, HUD, touch buttons, pause, game-over and restart flows all work without console errors.

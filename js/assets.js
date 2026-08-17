@@ -224,13 +224,13 @@
     defs.push(...glowDef(id + 'f', '#ffd166'));
     const c = [];
     c.push(el('g', { filter: `url(#${id}f)` }, [
-      el('path', { d: 'M16 20 L164 20 L164 116 Q164 128 152 128 L28 128 Q16 128 16 116 Z', fill: '#151b31', stroke: `url(#${id}a)`, 'stroke-width': 5 }),
-      el('path', { d: 'M28 34 L152 104 M40 34 L164 104 M28 60 L152 128 M28 84 L104 128', stroke: `url(#${id}a)`, 'stroke-width': 8, opacity: 0.92 }),
-      el('path', { d: 'M22 122 L22 170', stroke: '#ffd166', 'stroke-width': 10, 'stroke-linecap': 'round' }),
-      el('path', { d: 'M158 122 L158 170', stroke: '#ff9f43', 'stroke-width': 10, 'stroke-linecap': 'round' }),
+      el('path', { d: 'M16 18 L164 18 L164 94 Q164 106 152 106 L28 106 Q16 106 16 94 Z', fill: '#151b31', stroke: `url(#${id}a)`, 'stroke-width': 5 }),
+      el('path', { d: 'M28 30 L152 92 M42 30 L164 88 M28 56 L146 92 M28 80 L108 92', stroke: `url(#${id}a)`, 'stroke-width': 8, opacity: 0.92 }),
+      el('path', { d: 'M22 104 L22 170', stroke: '#ffd166', 'stroke-width': 10, 'stroke-linecap': 'round' }),
+      el('path', { d: 'M158 104 L158 170', stroke: '#ff9f43', 'stroke-width': 10, 'stroke-linecap': 'round' }),
       el('path', { d: 'M14 172 L166 172', stroke: '#ffd166', 'stroke-width': 7, 'stroke-linecap': 'round', opacity: 0.75 })
     ]));
-    c.push(el('text', { x: 90, y: 78, 'text-anchor': 'middle', fill: '#fff7e6', 'font-family': 'system-ui, sans-serif', 'font-size': '26', 'font-weight': '900', 'letter-spacing': '2' }, 'SLIDE'));
+    c.push(el('text', { x: 90, y: 68, 'text-anchor': 'middle', fill: '#fff7e6', 'font-family': 'system-ui, sans-serif', 'font-size': '25', 'font-weight': '900', 'letter-spacing': '2' }, 'SLIDE'));
     return svgWrap('0 0 180 185', 180, 185, defs, c);
   }
 

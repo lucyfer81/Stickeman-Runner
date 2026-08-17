@@ -4,16 +4,17 @@
 
   const TAU = Math.PI * 2;
   const ZFAR = 78;
-  const COLLIDE_Z = 3.1;
+  const COLLIDE_Z = 2.9;      // obstacle center must be right at the runner
+  const COLLIDE_BEHIND = -0.6; // once it has passed the chest, it cannot hurt
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lerp = (a, b, t) => a + (b - a) * t;
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
   const OBSTACLE_DEFS = {
-    hurdle:    { h: 0.30, ratio: 175 / 180, clearY: 0.31 },
-    slideGate: { h: 0.39, ratio: 180 / 185 },
-    wall:      { h: 0.40, ratio: 180 / 185 }
+    hurdle:    { h: 0.30, ratio: 175 / 180, clearY: 0.28, anchor: 158 / 175 },
+    slideGate: { h: 0.39, ratio: 180 / 185, anchor: 172 / 185 },
+    wall:      { h: 0.40, ratio: 180 / 185, anchor: 164 / 185 }
   };
   const LANES = [-1, 0, 1];
 
@@ -527,7 +528,7 @@
 
       // Obstacles
       for (const ob of this.obstacles) {
-        if (ob.passed || ob.smashed || ob.z > COLLIDE_Z || ob.z < -COLLIDE_Z) continue;
+        if (ob.passed || ob.smashed || ob.z > COLLIDE_Z || ob.z < COLLIDE_BEHIND) continue;
         const sameLane = Math.abs(ob.lane - p.lane) < 0.56;
 
         if (ob.kind === 'hurdle') {
@@ -569,6 +570,7 @@
         this.coins += 1;
         this.score += 15;
         this.audio.coin();
+        if (global.navigator && navigator.vibrate) navigator.vibrate(12);
         this.addPopup('+15', this.project(pk.lane, 1).x, this.h * 0.52, '#ffd166', 0.55);
         this.spawnBurst(this.project(pk.lane, 1).x, this.project(pk.lane, 1).y - this.depth * 0.06, '#ffd166', 8);
       } else if (pk.kind === 'sneaker') {
@@ -577,6 +579,7 @@
         p.maxJumps = 2;
         this.score += 100;
         this.audio.powerup();
+        if (global.navigator && navigator.vibrate) navigator.vibrate([28, 34, 28]);
         this.flash = 0.55;
         this.addPopup('GOLD KICKS!', this.cx, this.h * 0.28, '#ffd166', 1.4);
         this.spawnBurst(this.project(pk.lane, 1).x, this.project(pk.lane, 1).y, '#ffd166', 18);
@@ -607,6 +610,7 @@
       p.crashT = 0;
       this.state = 'crashing';
       this.audio.crash();
+      if (global.navigator && navigator.vibrate) navigator.vibrate([70, 40, 110]);
       this.shake = 1;
       this.flash = 0.35;
       const pr = this.project(p.lane, 1);
@@ -992,7 +996,15 @@
         const def = OBSTACLE_DEFS[ob.kind];
         const pr = this.project(ob.lane, ob.z);
         const assetKey = ob.kind === 'wall' ? 'dodgeWall' : ob.kind;
-        items.push({ z: ob.z, draw: () => this.drawSprite(ctx, assetKey, pr, def.h * this.depth * pr.scale, def.ratio) });
+        const h = def.h * this.depth * pr.scale;
+        const w = h * def.ratio;
+        items.push({
+          z: ob.z,
+          draw: () => {
+            this.drawGroundShadow(ctx, pr, w * 0.72, 0.30);
+            this.drawSprite(ctx, assetKey, pr, h, def.ratio, undefined, def.anchor);
+          }
+        });
       }
       for (const pk of this.pickups) {
         if (pk.z < 0.2 || pk.z > ZFAR) continue;
@@ -1007,12 +1019,19 @@
       for (const item of items) item.draw();
     }
 
-    drawSprite(ctx, key, pr, h, ratio, overrideY) {
+    drawGroundShadow(ctx, pr, w, alpha) {
+      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      ctx.beginPath();
+      ctx.ellipse(pr.x, pr.y, w / 2, Math.max(3, w * 0.055), 0, 0, TAU);
+      ctx.fill();
+    }
+
+    drawSprite(ctx, key, pr, h, ratio, overrideY, anchor) {
       const img = global.Assets.get(this.defs, key);
       if (!img) return;
       const w = h * ratio;
       const x = pr.x;
-      const y = overrideY !== undefined ? overrideY : pr.y - h;
+      const y = overrideY !== undefined ? overrideY : pr.y - h * (anchor || 1);
       ctx.drawImage(img, x - w / 2, y, w, h);
     }
 
@@ -1035,20 +1054,31 @@
       let yOff = p.y;
       let rotation = 0;
       let spriteH = h;
+      let anchor = 0.87; // run-cycle grounded foot position inside the SVG viewBox
 
-      if (p.crashT >= 0) {
+      if (p.crashed) {
+        img = global.Assets.get(this.defs, 'stickman', 'defeated');
+        rotation = 2.35;
+        yOff = 0;
+        spriteH = h * 0.92;
+        anchor = 0.61;
+      } else if (p.crashT >= 0) {
         img = global.Assets.get(this.defs, 'stickman', 'defeated');
         const t = Math.min(1, p.crashT / 0.9);
         rotation = t * 2.4;
         yOff = Math.sin(t * Math.PI) * this.depth * 0.2;
         spriteH = h * (1 - t * 0.08);
+        anchor = 0.61;
       } else if (p.sliding) {
         img = global.Assets.get(this.defs, 'stickman', 'slide');
         spriteH = h * 0.68;
         yOff = 0;
+        anchor = 0.78;
       } else if (!p.grounded) {
-        img = global.Assets.get(this.defs, 'stickman', p.vy > 0 ? 'jumpRise' : 'jumpFall');
-        rotation = p.vy > 0 ? -0.06 : 0.10;
+        const rising = p.vy > 0;
+        img = global.Assets.get(this.defs, 'stickman', rising ? 'jumpRise' : 'jumpFall');
+        anchor = rising ? 0.69 : 0.745;
+        rotation = rising ? -0.06 : 0.10;
       } else {
         const frame = Math.floor(p.runPhase * 8) % 8;
         if (p.lean > 0.42) img = global.Assets.get(this.defs, 'stickman', 'dodgeR', frame);
@@ -1075,7 +1105,9 @@
       ctx.rotate(rotation);
       const drawH = spriteH;
       const drawW = drawH * (160 / 215);
-      ctx.drawImage(img, -drawW / 2, -drawH, drawW, drawH);
+      // Anchor the in-SVG foot baseline to the projected ground point rather
+      // than anchoring the full viewBox, so feet visibly touch the road.
+      ctx.drawImage(img, -drawW / 2, -drawH * anchor, drawW, drawH);
       ctx.restore();
     }
 

@@ -20,3 +20,11 @@
 - Corrected dodge-wall asset key mapping, sneaker jump reset, magnet pull, game-over record detection, and menu/return-to-title flow.
 - Improved HUD flex layout so touch controls stay bottom-anchored; power-up tag is now absolutely positioned above touch controls.
 - Tuned player sprite height for small portrait screens and ignored key auto-repeat.
+
+## Fix pass 2 (feel & fairness)
+- Narrowed the obstacle hit window so an obstacle that has visibly passed the runner can no longer hurt.
+- Lowered hurdle clearance slightly to forgive frame timing near the top of a jump.
+- Ground-anchored sprites by their actual foot/baseline coordinates so the stickman's feet touch the road.
+- Added soft shadows under obstacles and a taller opening under slide gates.
+- Added haptic vibration on coin, power-up and crash for supported phones.
+- Fallen stickman stays visible behind the game-over panel.

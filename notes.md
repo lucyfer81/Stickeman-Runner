@@ -43,3 +43,6 @@
 - Title attract-mode actions are now silent (no random jump sounds after returning to the menu).
 - Added personal-best preview to the title screen.
 - Re-tested 320px title layout after the addition.
+
+## Tiny fix
+- Initial title screen now immediately shows the saved personal best, not just after a run.

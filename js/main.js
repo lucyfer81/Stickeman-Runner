@@ -22,6 +22,7 @@
       this.pauseBars = $('pauseBars');
       this.pausePlay = $('pausePlay');
       this.titleBest = $('titleBest');
+      if (this.titleBest) this.titleBest.textContent = Math.floor(game.best).toLocaleString();
 
       this.finalScore = $('finalScore');
       this.finalDistance = $('finalDistance');

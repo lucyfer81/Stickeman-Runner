@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b1020">
+<title>Stickman Parkour</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --ink: #eaf6ff;
+    --neon: #35e0d0;
+    --hot: #ff5d8f;
+    --gold: #ffd166;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(120% 90% at 50% 0%, #1b2b5e 0%, #0b1020 55%, #070a16 100%);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #titleScreen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    z-index: 10;
+  }
+  .title-badge {
+    font-size: clamp(11px, 2.4vw, 15px);
+    letter-spacing: .55em;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-shadow: 0 0 18px rgba(255, 209, 102, .55);
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-size: clamp(44px, 11vw, 104px);
+    line-height: .9;
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: .02em;
+    text-shadow:
+      0 0 22px rgba(53, 224, 208, .65),
+      0 4px 0 rgba(0, 0, 0, .35);
+  }
+  h1 .accent { color: var(--hot); text-shadow: 0 0 22px rgba(255, 93, 143, .7), 0 4px 0 rgba(0,0,0,.35); }
+  .runner-stage { width: min(300px, 62vw); height: 170px; margin: 10px 0 4px; }
+  .tagline { color: #9fb7d8; font-size: clamp(13px, 3.4vw, 18px); letter-spacing: .18em; text-transform: uppercase; }
+  .start-btn {
+    margin-top: clamp(22px, 5vh, 40px);
+    padding: 16px 46px;
+    border: 2px solid var(--neon);
+    border-radius: 999px;
+    background: rgba(53, 224, 208, .10);
+    color: var(--ink);
+    font-size: clamp(16px, 4.4vw, 22px);
+    font-weight: 800;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 0 28px rgba(53, 224, 208, .28), inset 0 0 18px rgba(53, 224, 208, .12);
+    animation: pulse 1.7s ease-in-out infinite;
+  }
+  .start-btn:hover, .start-btn:focus-visible { background: rgba(53,224,208,.22); outline: none; transform: scale(1.04); }
+  .start-hint { margin-top: 18px; color: #7f93b5; font-size: 12px; letter-spacing: .2em; text-transform: uppercase; }
+  @keyframes pulse { 50% { box-shadow: 0 0 46px rgba(53,224,208,.55), inset 0 0 22px rgba(53,224,208,.18); } }
+  @media (max-height: 520px) {
+    .runner-stage { height: 110px; margin: 4px 0; }
+    h1 { font-size: clamp(34px, 10vh, 64px); }
+  }
+</style>
+</head>
+<body>
+  <main id="titleScreen" aria-label="Stickman Parkour title screen">
+    <div class="title-badge">Neon City Endless Run</div>
+    <h1>STICKMAN<br><span class="accent">PARKOUR</span></h1>
+    <svg class="runner-stage" viewBox="0 0 300 170" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1b2b5e"/><stop offset="1" stop-color="#0b1020"/>
+        </linearGradient>
+        <linearGradient id="neonGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#eaf6ff"/><stop offset="1" stop-color="#35e0d0"/>
+        </linearGradient>
+      </defs>
+      <rect width="300" height="170" rx="18" fill="url(#sky)" stroke="#26365e"/>
+      <path d="M0 120 L300 120" stroke="#35e0d0" stroke-opacity=".18" stroke-width="2"/>
+      <path d="M0 142 L300 142" stroke="#35e0d0" stroke-opacity=".28" stroke-width="2"/>
+      <g stroke="url(#neonGrad)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="150" cy="26" r="13" fill="#eaf6ff" stroke="none"/>
+        <path d="M150 39 Q142 54 140 70"/>
+        <path d="M140 70 Q132 84 118 88"/>
+        <path d="M140 70 Q154 84 164 90"/>
+        <path d="M140 70 Q146 82 148 96"/>
+        <path d="M148 96 Q138 110 128 112"/>
+        <path d="M148 96 Q158 110 170 106"/>
+      </g>
+      <circle cx="150" cy="26" r="23" stroke="#35e0d0" stroke-opacity=".35" stroke-width="2"/>
+      <text x="150" y="164" text-anchor="middle" font-family="system-ui" font-size="12" letter-spacing="5" fill="#7f93b5">READY TO RUN</text>
+    </svg>
+    <p class="tagline">Jump · Slide · Dodge · Survive</p>
+    <button class="start-btn" id="startButton" type="button">Start Run</button>
+    <div class="start-hint">Tap start or press space</div>
+  </main>
+  <script>
+    document.getElementById('startButton').addEventListener('click', () => {
+      document.getElementById('titleScreen').style.opacity = '0';
+      setTimeout(() => document.getElementById('titleScreen').remove(), 350);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.code === 'Space' || event.code === 'Enter') {
+        event.preventDefault();
+        document.getElementById('titleScreen')?.remove();
+      }
+    });
+    document.getElementById('titleScreen').addEventListener('pointerdown', () => {
+      document.getElementById('titleScreen').remove();
+    });
+  </script>
+</body>
+</html>

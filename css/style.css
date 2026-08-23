@@ -425,6 +425,7 @@ body.muted .mute-x { display: block; }
   .hud-pill { min-width: 0; padding: 7px 9px; }
   .hud-pill.center { min-width: 0; }
   .hud-buttons { gap: 5px; }
-  .icon-btn { width: 36px; height: 36px; border-radius: 10px; }
+  /* 44px floor: mid-run pause/mute taps must meet minimum touch-target size */
+  .icon-btn { width: 44px; height: 44px; border-radius: 12px; }
   #touchActions { margin-left: auto; }
 }

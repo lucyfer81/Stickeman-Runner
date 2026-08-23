@@ -152,3 +152,11 @@
 **Verification (Playwright).** FPS: mobile 36→**57.3** (+59%, suite floor 45 now green), desktop 12→**21** (+75%, floor 20 green) in the software-rendered shell; smoke green on all 5 viewports, no console errors. Pixel parity probes: sky sample [6,8,23] vs #050714, road [14,18,41] vs #0d1126, skyline/ground samples in family, backdrop cache confirmed (`bg` exists, `bgDirty=false` after first frame), CSS vignette present (corner luminance 10.0 vs center 30.6). Evidence: `evidence/fix3-cached-backdrop.jpg`.
 
 **Post-review correction (blocker caught by reviewer pass).** The first version of this fix regressed the horizon band: the old code's opaque ground fill used to hide the sun/skyline overhang below the horizon, and the blitted backdrop lost that cover (sun bottom + building bases visibly overlapped the road). Fixed by clipping the dynamic sky layers (stars/sun/clouds/skyline) to the above-horizon band and restoring a single cheap `clearRect` for shake-edge parity. Re-verified with an overhang-band pixel probe: just-below-horizon samples now read road-top colors ([31,37,75] ≈ #20264c) on both 1440×900 and 390×844 — no sun/building bleed; FPS unchanged (desktop 23.6, mobile 60.4).
+
+## Dev log — Fix pass 10 (top-5 #4): 44px minimum for pause/mute touch targets
+
+**Problem (measured).** On ≤700px viewports the `@media` rule shrank `.icon-btn` to 36×36px (measured on 390×844) — below the 44px minimum (Apple HIG / Material) for buttons used mid-run at speed, guaranteeing mis-taps for pause and mute on phones.
+
+**Fix.** `css/style.css`: mobile `.icon-btn` 36→44px (radius 10→12 to keep proportion).
+
+**Verification (Playwright).** Suite touch-target checks green (pause/mute 44px). Layout-fit probes at 390×844 and 320×568: no horizontal overflow, clean gap between the coins pill and the pause button (390px: 18px gap; 320px: 18px gap). Evidence: `evidence/fix4-touch-targets-390.jpg`, `evidence/fix4-touch-targets-320.jpg`.

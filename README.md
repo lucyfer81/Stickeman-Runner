@@ -11,6 +11,15 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
+## Test
+
+Reproducible Playwright QA suite (5 viewports: flows, touch targets, swipe matrix, FPS floors; `npm run test:fairness` adds a perfect-bot max-difficulty fairness block):
+
+```bash
+npm install                # playwright lib only; browsers must already be installed (npx playwright install chromium)
+npm test
+```
+
 ## Controls
 
 | Action | Desktop | Mobile |

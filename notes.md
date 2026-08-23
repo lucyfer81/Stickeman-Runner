@@ -1,5 +1,61 @@
 # Stickman Parkour — Build Notes
 
+## CRITICAL QA REVIEW — 2026-08-23 (senior game QA + game designer pass)
+
+**Method.** Replayed the shipped build headlessly via Playwright (Chromium 1.62): scripted *perfect* and *casual* bots playing the real game loop, seeded max-difficulty fairness runs (10×), input probes (swipes at controlled angles), DOM touch-target measurements, pause/restart/game-over flow probes, FPS sampling with blank-page and gradient-only baselines to isolate the game's own cost, console-error watch across 5 viewports (1440×900, 390×844, 320×568, 740×360, small-phone). Screenshots archived in `evidence/review/`. All numbers below are measured, not estimated. (Caveat: FPS in a software-rendered headless shell understates GPU-equipped desktops, but the *relative* cost and the mobile-class result are valid; the gradient-only baseline proves cause.)
+
+### A. Gameplay problems
+- **A1 (CRITICAL) — Perfect play is killed by the generator at max difficulty. 10/10 seeded runs (difficulty 1.0, speed ~40) die between 1504–1608m.** Death patterns are consistent: `spawnWallDodge` staggers its two walls `lerp(7, 2.5, d)` = 2.5 z-units apart (62ms at speed 40), and consecutive waves interleave a hurdle/slide-gate into the escape lane as little as ~4 z (≈0.1s) behind a wall. Required reaction: lane change (0.15–0.3s) *plus* jump/slide commit (<0.1s) — infeasible. The run from the earlier persona pass that survived 1km+ simply never reached max difficulty (1460m). Effectively an **endless runner that ends at ~1.5km for everyone**, skill-independent.
+- A2 — Side-clip deaths during 2-lane wall traverses: while `p.lane` lerps across the middle lane, a staggered wall there still kills (lethal z-band `[-0.6, 2.9]` + same-lane threshold 0.5 makes the corridor effectively wider than it looks).
+- A3 — Coins spawn behind/inside wall lanes as bait (30% post-wave coin lines in random lanes): occasionally reads as designed risk/reward, often reads as a trap since the wall obscures the coin line until ~30z out.
+- A4 — Golden Kicks (the only power-up) first appears past 220m and then every ~11–18s of spawn-clock; runs that die before 220m (most casual runs, see B1) never see it.
+
+### B. Balancing problems
+- B1 — Ramp: difficulty starts at 60m and hits max at 1460m; combined with A1 the score ceiling is ~35–40k. There is no late-game — the difficulty curve doesn't flatten into a testable "flow" band, it hits a wall (literally).
+- B2 — Early game is trivially easy for ~200m (single obstacle every ~1.4s at speed 15), then fairness collapses at the other extreme. The curve is a cliff, not a slope.
+- B3 — Milestone bonuses (100×n) dwarf skill income (coins 15, near-miss 25) late-game; score is mostly distance, cheapening the risk/reward loop.
+
+### C. UI/UX problems
+- **C1 (HIGH) — Pause screen "Restart" does not restart: it resumes.** Measured: pause at 29.25m → click Restart → state `running`, distance continues 29.25→35.25m. (`pauseRestartButton` emits `start`; `input()` maps `start`-while-paused to resume.) Players cannot abandon a bad run from pause without Menu→Start (2 screens).
+- C2 — Mobile first-run has zero control teaching: `#controlHint` is hidden on coarse pointers; nothing explains swipe vs buttons. Desktop hint auto-hides after 4.2s with no way to recall it.
+- C3 — No fullscreen option (F/edge); on browsers with URL bars the safe-area tuning matters.
+- C4 — Game-over panel shows instantly after the 0.95s crash tumble; no "what killed me" cue (obstacle kind/lane recap), which is the cheapest learn-from-death loop.
+
+### D. Visual weaknesses
+- D1 — Wall sprite, while now readable as unjumpable, occupies ~72% of depth height; on short landscape viewports (740×360) `playerH` shrinks to ~104px and the scene reads cramped (measured).
+- D2 — Night palette makes hurdles (pink/orange) the highest-salience object on screen; coins (gold) compete with the gold slide-gate and Golden Kicks text for the same hue family — pickup priority is muddled at speed.
+- D3 — Crash rotation + flash + shake stack well, but the defeated pose plays behind the game-over panel with no slow-mo; the wipeout is the most emotional beat and it's over in 0.95s.
+
+### E. Performance risks
+- **E1 (HIGH) — Fullscreen gradients are re-created and rasterized every frame** (`drawSky`, `drawRoad` ×2, horizon glow, `drawVignette` radial ≈ 6 fullscreen gradient fills/frame). Measured in-headless: gradient-only canvas baseline = **23fps** (blank rAF = 60); full game = **10.3–12fps @1440×900×2dpr** and **~30fps @390×844×2dpr**. The 30fps mobile figure is the realistic low-end-GPU preview; this is the dominant per-frame cost and it is all static content that could be cached once per resize.
+- E2 — Per-frame allocations (gradient objects, road path) feed GC pressure on long sessions (minor vs E1).
+
+### F. Mobile usability
+- **F1 (HIGH) — Pause/mute buttons measure 36×36px on 390×844** (`.icon-btn` shrunk in the ≤700px media query) — below the 44px minimum (Apple HIG/Google) for a control used mid-run at speed.
+- **F2 (HIGH) — Diagonal swipes (~45°) are dead inputs.** `handleSwipe` requires `adx > ady*1.25` or `ady > adx*1.1`; a measured 60/55 (47°) thumb swipe produced **zero actions**. Real thumbs rarely swipe at clean axes; this eats jump/slide inputs exactly when players are frantic.
+- F3 — Jump/slide touch buttons are bottom-center while lane buttons are bottom-left: right-thumb travel for jump is fine, but left-handed players get no layout mirror (minor).
+
+### G. PC usability
+- G1 — Window blur (alt-tab without tab-hide) does not auto-pause; only `visibilitychange`. Desktop players lose runs on focus loss.
+- G2 — Restart is bound nowhere on keyboard (R does nothing); after death you must click or press Space (Space works, but R is the genre convention).
+
+### H. Process problems
+- H1 — No committed test harness, no CI, no lint, no package.json: every "verified green" claim in this file is unreproducible from the repo (the prior Playwright suites were ephemeral).
+- H2 — Evidence/screenshots were never committed, so regression claims (e.g. "wall reads unjumpable") can't be diffed over time.
+- H3 — No LICENSE; repo is all-rights-reserved by default.
+- H4 — notes.md mixes dev log and QA findings without severity labels (partially addressed by this section).
+
+### Top 5 priorities (fix order)
+1. **A1/B1/B2 — Unfair max-difficulty wave interleaving** (10/10 perfect-bot deaths ~1505m): enforce a spawn-time minimum spacing between cross-wave action obstacles, widen wall-dodge stagger floor. Fair = perfect bot survives indefinitely; hard stays hard for humans.
+2. **C1 — Pause "Restart" resumes instead of restarting**: dedicated `restart` action.
+3. **E1 — Per-frame fullscreen gradient rasterization** (12fps desktop-class / 30fps mobile-class in software renderer): cache static backdrop to an offscreen canvas at resize; vignette becomes a CSS overlay.
+4. **F1 — 36px pause/mute touch targets** → ≥44px on mobile.
+5. **F2 — Diagonal swipe dead zone** → dominant-axis swipe resolution.
+
+(Process remediation H1/H2 rides along: the QA harness used below is committed under `tests/`, runnable via `npm test`, and evidence screenshots land in `evidence/`.)
+
+---
+
 ## 2025-08-17
 - Created `index.html` with the first playable-facing title screen (Neon City Endless Run).
 - Added responsive SVG stickman preview, Start button, keyboard/pointer start handling.

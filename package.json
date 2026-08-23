@@ -1,0 +1,14 @@
+{
+  "name": "stickeman-runner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stickman Parkour — browser pseudo-3D endless runner (no build step)",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "test": "node tests/qa.mjs",
+    "test:fairness": "node tests/qa.mjs --fairness"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

@@ -133,7 +133,10 @@
         const dy = e.clientY - this.pointer.y;
         const adx = Math.abs(dx);
         const ady = Math.abs(dy);
-        if (Math.max(adx, ady) > 28) {
+        // Early-fire only when one axis clearly dominates: a near-diagonal
+        // gesture must not be committed at half-distance, where the angle
+        // is still ambiguous (it gets classified on pointerup instead).
+        if (Math.max(adx, ady) > 28 && (adx > ady * 1.2 || ady > adx * 1.2)) {
           this.handleSwipe(dx, dy);
           this.swipeHandled = true;
         }
@@ -211,11 +214,11 @@
     }
 
     handleSwipe(dx, dy) {
-      const adx = Math.abs(dx);
-      const ady = Math.abs(dy);
-      if (adx > ady * 1.25) {
+      // Dominant-axis resolution: every swipe angle maps to an action,
+      // including ~45° thumb swipes that the old ratio thresholds dropped.
+      if (Math.abs(dx) >= Math.abs(dy)) {
         this.game.input(dx < 0 ? 'left' : 'right');
-      } else if (ady > adx * 1.1) {
+      } else {
         this.game.input(dy < 0 ? 'jump' : 'slide');
       }
     }

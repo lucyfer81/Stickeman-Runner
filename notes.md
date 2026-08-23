@@ -160,3 +160,11 @@
 **Fix.** `css/style.css`: mobile `.icon-btn` 36→44px (radius 10→12 to keep proportion).
 
 **Verification (Playwright).** Suite touch-target checks green (pause/mute 44px). Layout-fit probes at 390×844 and 320×568: no horizontal overflow, clean gap between the coins pill and the pause button (390px: 18px gap; 320px: 18px gap). Evidence: `evidence/fix4-touch-targets-390.jpg`, `evidence/fix4-touch-targets-320.jpg`.
+
+## Dev log — Fix pass 11 (top-5 #5): diagonal swipes no longer dead input
+
+**Problem (measured).** `handleSwipe` required `adx > ady*1.25` / `ady > adx*1.2`, so ~40–55° thumb swipes produced **zero actions** (probe: 60/55 swipe → `[]`). Review of the fix additionally exposed a second layer: the early-fire on `pointermove` classified gestures at half-distance, where a diagonal's intermediate delta (30, 27.5) fell into the dead zone and `swipeHandled = true` silently swallowed the entire gesture.
+
+**Fix.** `js/main.js`: swipe resolution is now dominant-axis (`|dx| >= |dy|` → lane, else jump/slide) so every angle maps to an action; the early-fire only triggers when one axis clearly dominates (>1.2×), leaving ambiguous diagonals to be classified at pointerup with full displacement.
+
+**Verification (Playwright).** Suite swipe matrix green: axis swipes (`left/jump/slide`), 43°→right, 47°→slide, 30°→right, 137°→left — each exactly one deterministic action. Full `npm test`: **ALL GREEN** (25 checks: 5-viewport smoke, pause/restart/game-over flows, 44px touch targets, swipe matrix, FPS floors mobile 57+/desktop 21+).

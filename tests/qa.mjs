@@ -255,10 +255,12 @@ for (const [name, opts] of viewports) {
   await swipe(-80, 0); await swipe(0, -80); await swipe(0, 80);
   const axisLog = await page.evaluate(() => window.__game.__swipeLog);
   check('axis swipes work', JSON.stringify(axisLog) === JSON.stringify(['left', 'jump', 'slide']), JSON.stringify(axisLog));
-  await page.evaluate(() => { window.__game.__swipeLog = []; window.__game.player.targetLane = 0; });
-  await swipe(60, 55); // ~47° diagonal, the classic dead zone
-  const diagLog = await page.evaluate(() => window.__game.__swipeLog);
-  check('47° diagonal swipe resolves to an action', diagLog.length > 0, JSON.stringify(diagLog));
+  for (const [dx, dy, expected] of [[60, 55, 'right'], [55, 60, 'slide'], [70, 40, 'right'], [-60, 55, 'left']]) {
+    await page.evaluate(() => { window.__game.__swipeLog = []; window.__game.player.targetLane = 0; });
+    await swipe(dx, dy);
+    const log = await page.evaluate(() => window.__game.__swipeLog);
+    check(`${Math.round(Math.atan2(dy, dx) * 180 / Math.PI)}° swipe -> ${expected}`, log.length === 1 && log[0] === expected, JSON.stringify(log));
+  }
   await ctx.close();
 }
 

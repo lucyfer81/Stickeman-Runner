@@ -168,3 +168,23 @@
 **Fix.** `js/main.js`: swipe resolution is now dominant-axis (`|dx| >= |dy|` → lane, else jump/slide) so every angle maps to an action; the early-fire only triggers when one axis clearly dominates (>1.2×), leaving ambiguous diagonals to be classified at pointerup with full displacement.
 
 **Verification (Playwright).** Suite swipe matrix green: axis swipes (`left/jump/slide`), 43°→right, 47°→slide, 30°→right, 137°→left — each exactly one deterministic action. Full `npm test`: **ALL GREEN** (25 checks: 5-viewport smoke, pause/restart/game-over flows, 44px touch targets, swipe matrix, FPS floors mobile 57+/desktop 21+).
+
+---
+
+## QA review — closing summary (2026-08-23)
+
+All top-5 priorities fixed, verified, reviewed and pushed:
+
+| # | Problem | Fix pass | Result |
+|---|---|---|---|
+| 1 | Unfair max-difficulty generator (10/10 perfect deaths ~1505m) | 7 | 5/5 and 10/10 perfect-bot survival at difficulty 1.0; runs now pass 2100m |
+| 2 | Pause "Restart" resumed the run | 8 | Restart gives a fresh run; Esc/Space resume intact |
+| 3 | ~6 fullscreen gradients rasterized per frame | 9 | Mobile 36→57-60fps, desktop 12→21-24fps (software-rendered shell); reviewer-caught horizon-band regression fixed pre-push |
+| 4 | 36px pause/mute touch targets | 10 | 44px floor, no overflow at 390/320 widths |
+| 5 | Diagonal swipes dead-zoned (2 layers) | 11 | Dominant-axis resolution; every angle → exactly one action |
+
+Process remediation: reproducible Playwright suite committed (`npm test`, `npm run test:fairness`), evidence screenshots in-repo, per-fix dev logs above, every fix passed an independent reviewer pass before push (reviewer caught 1 blocker: fix #3's horizon-band layering).
+
+Final state at HEAD: `npm test` ALL GREEN (27 checks), fairness 5/5, no console errors on any of 5 viewports.
+
+Remaining known issues (not top-5, documented above for future passes): mobile first-run control teaching (C2), fullscreen option (C3), death recap (C4), coin-bait behind walls (A3), blur auto-pause (G1), R-key restart (G2), LICENSE (H3).

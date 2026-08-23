@@ -195,7 +195,16 @@
 
     startSlide(silent = false) {
       const p = this.player;
-      if (!p.grounded || p.sliding) return;
+      if (!p.grounded) return;
+      // Re-arm: a second gate arriving just after the first slide expires must
+      // not be unslidable. Refreshing a nearly-depleted slide is allowed;
+      // a fresh one is not restarted (prevents mash-spam dust/sound).
+      if (p.sliding) {
+        if (p.slideTimer > 0.4) return;
+        p.slideTimer = 0.72;
+        if (!silent) this.audio.slide();
+        return;
+      }
       p.sliding = true;
       p.slideTimer = 0.72;
       this.spawnDust(10);
@@ -411,6 +420,7 @@
     spawnWave() {
       const d = this.difficulty;
       const lanes = [...LANES];
+      this.waveId = (this.waveId || 0) + 1;
 
       if (Math.random() < lerp(0.24, 0.10, d)) {
         this.spawnCoinLine(pick(lanes));
@@ -442,9 +452,12 @@
         } else {
           const a = pick(lanes); const b = pick(lanes.filter(l => l !== a));
           this.spawnObstacle('wall', a, ZFAR);
-          this.spawnObstacle('wall', b, ZFAR + rand(5, 8));
+          const wallBz = ZFAR + rand(5, 8);
+          this.spawnObstacle('wall', b, wallBz);
           const open = lanes.find(l => l !== a && l !== b);
-          this.spawnObstacle(Math.random() < 0.6 ? 'hurdle' : 'slideGate', open, ZFAR + rand(9, 12));
+          // The escape-lane action must not fire while the player is still
+          // completing the wall dodge: give it a speed-proportional head start.
+          this.spawnObstacle(Math.random() < 0.6 ? 'hurdle' : 'slideGate', open, wallBz + lerp(9, 13, d));
         }
       }
 
@@ -452,12 +465,44 @@
       if (Math.random() < 0.30) {
         this.spawnCoinLine(pick(lanes), 4);
       }
+      this.enforceWaveSpacing();
+    }
+
+    // Fairness guard: consecutive waves may interleave, but the next required
+    // action must stay reaction-feasible — at least ~0.24s after the previous
+    // obstacle, plus lane-travel time when it sits in a different lane. A
+    // hurdle-first same-lane chain gets a wider gap because the jump occupies
+    // the lane for its full duration. Runs to a fixed point so a push can
+    // never drop the obstacle right in front of a later old one. (Invariant:
+    // fresh waves spawn at ZFAR behind all live obstacles, so only pushing
+    // fresh z forward is needed.)
+    enforceWaveSpacing() {
+      const w = this.waveId;
+      const fresh = this.obstacles.filter(o => o.wave === w);
+      const old = this.obstacles.filter(o => o.wave !== w && !o.smashed && o.z > 3);
+      for (const n of fresh) {
+        let changed = true;
+        let passes = 0;
+        while (changed && passes++ < 8) {
+          changed = false;
+          for (const ob of old) {
+            if (ob.z >= n.z) continue;
+            const laneDist = Math.min(2, Math.abs(ob.lane - n.lane));
+            let minGap = this.speed * (0.24 + 0.09 * laneDist);
+            if (ob.kind === 'hurdle' && laneDist === 0) minGap = Math.max(minGap, this.speed * 0.75);
+            if (n.z - ob.z < minGap) {
+              n.z = ob.z + minGap;
+              changed = true;
+            }
+          }
+        }
+      }
     }
 
     spawnWallDodge(d) {
       const openLane = pick(LANES);
       const blocked = LANES.filter(l => l !== openLane);
-      const stagger = lerp(7, 2.5, d);
+      const stagger = lerp(7, 3.5, d);
       this.spawnObstacle('wall', blocked[0], ZFAR);
       this.spawnObstacle('wall', blocked[1], ZFAR + stagger);
       if (Math.random() < 0.45) this.spawnCoinLine(openLane, 4);
@@ -479,7 +524,8 @@
         passed: false,
         smashed: false,
         nearMissGiven: false,
-        spawnZ: z
+        spawnZ: z,
+        wave: this.waveId || 0
       });
     }
 

@@ -86,22 +86,6 @@ const fps = (page, secs = 3) => page.evaluate((s) => new Promise((res) => {
 /* ------------------------------------------------------------ perfect bot */
 const BOT_SRC = `
   window.__qaDeaths = [];
-  const nearestWallZ = (g, lane, zmin, zmax) => {
-    let z = Infinity;
-    for (const ob of g.obstacles) {
-      if (ob.smashed || ob.lane !== lane || ob.kind !== 'wall') continue;
-      if (ob.z >= zmin && ob.z <= zmax && ob.z < z) z = ob.z;
-    }
-    return z;
-  };
-  const nearestActionZ = (g, lane, zmin, zmax) => {
-    let z = Infinity;
-    for (const ob of g.obstacles) {
-      if (ob.smashed || ob.lane !== lane || ob.kind === 'wall') continue;
-      if (ob.z >= zmin && ob.z <= zmax && ob.z < z) z = ob.z;
-    }
-    return z;
-  };
   let wasRunning = false;
   window.__botTimer = setInterval(() => {
     const g = window.__game;
@@ -109,26 +93,61 @@ const BOT_SRC = `
     if (g.state === 'running') {
       wasRunning = true;
       const p = g.player, sp = g.speed;
+      const TRAVERSE = 0.13; // seconds of lane lerp per lane crossed
+
+      // time until 'lane' would kill a runner who starts moving there now
+      const laneKillTime = (lane) => {
+        const traverse = Math.abs(lane - p.lane) * TRAVERSE;
+        let t = Infinity;
+        for (const ob of g.obstacles) {
+          if (ob.smashed || ob.lane !== lane || ob.z < -1) continue;
+          const ta = (ob.z - 2.9) / sp;
+          if (ta < -0.05) continue;
+          if (ob.kind === 'wall') { if (ta < t) t = ta; }
+          else {
+            const lead = ob.kind === 'hurdle' ? 0.30 : 0.10;
+            if (ta - traverse < lead && ta < t) t = ta; // can't act in time after arriving
+          }
+        }
+        return t;
+      };
+
+      // 1) act on own-lane jump/slide obstacles
       let act = null;
       for (const ob of g.obstacles) {
-        if (ob.smashed) continue;
+        if (ob.smashed || ob.z < -1) continue;
+        if (Math.abs(ob.lane - p.targetLane) >= 0.4) continue;
         const t = (ob.z - 2.9) / sp;
         if (t < -0.06 || t > 1.4) continue;
+        if (ob.kind === 'wall') continue;
         if (!act || ob.z < act.z) act = ob;
       }
       if (act) {
-        const sameLane = Math.abs(act.lane - p.targetLane) < 0.4;
-        if (act.kind === 'wall') {
-          if (sameLane && act.z <= 2.9 + sp * 0.9) {
-            const cands = [act.lane - 1, act.lane + 1].filter((l) => l >= -1 && l <= 1 && nearestWallZ(g, l, act.z - 18, act.z + 18) > act.z + 2 && nearestActionZ(g, l, act.z, act.z + 10) > act.z + 4);
-            const pool = cands.length ? cands : [act.lane - 1, act.lane + 1].filter((l) => l >= -1 && l <= 1);
-            const target = pool[Math.floor(Math.random() * pool.length)];
-            g.input(target < p.targetLane ? 'left' : 'right');
+        const t = (act.z - 2.9) / sp;
+        if (act.kind === 'hurdle' && p.grounded && t < 0.30) g.input('jump');
+        else if (act.kind === 'slideGate' && p.grounded && t < 0.10) g.input('slide'); // game re-arms depleted slides
+      }
+
+      // 2) escape own-lane walls toward the lane with the longest survival time
+      let wall = null;
+      for (const ob of g.obstacles) {
+        if (ob.smashed || ob.kind !== 'wall' || ob.z < -1) continue;
+        if (Math.abs(ob.lane - p.targetLane) >= 0.4) continue;
+        const t = (ob.z - 2.9) / sp;
+        if (t < -0.06 || t > 1.4) continue;
+        if (!wall || ob.z < wall.z) wall = ob;
+      }
+      if (wall) {
+        const tWall = (wall.z - 2.9) / sp;
+        if (tWall < 0.55 && Math.abs(p.lane - wall.lane) < 0.4) {
+          const cands = [p.targetLane - 1, p.targetLane + 1].filter((l) => l >= -1 && l <= 1);
+          let best = null, bestT = -1;
+          for (const l of cands) { const t = laneKillTime(l); if (t > bestT) { bestT = t; best = l; } }
+          // transit taps are allowed: we can pass THROUGH a blocked lane
+          // (staggered wall pairs) as long as we can arrive there and keep moving
+          if (best !== null && bestT > 0.18 + Math.abs(best - p.lane) * TRAVERSE) {
+            g.input(best < p.targetLane ? 'left' : 'right');
           }
-        } else if (act.kind === 'hurdle') {
-          if (sameLane && p.grounded && act.z <= 2.9 + sp * 0.30) g.input('jump');
-        } else if (act.kind === 'slideGate') {
-          if (sameLane && p.grounded && !p.sliding && act.z <= 2.9 + sp * 0.10) g.input('slide');
         }
       }
     } else if (wasRunning && g.state === 'crashing') {
@@ -136,7 +155,11 @@ const BOT_SRC = `
       window.__qaDeaths.push({
         distance: Math.round(g.distance),
         pattern: g.obstacles.filter((o) => o.z < 34).map((o) => ({ k: o.kind, l: o.lane, z: +o.z.toFixed(1) })),
-        playerLane: +g.player.lane.toFixed(2)
+        playerLane: +g.player.lane.toFixed(2),
+        targetLane: g.player.targetLane,
+        sliding: g.player.sliding,
+        grounded: g.player.grounded,
+        speed: +g.speed.toFixed(1)
       });
     }
   }, 16);
@@ -254,7 +277,7 @@ for (const [name, opts] of viewports) {
 /* 6. fairness (opt-in, long) */
 if (process.argv.includes('--fairness')) {
   const { ctx, page } = await newPage(browser, { w: 1440, h: 900 });
-  const RUNS = 5, CAP_MS = 45000;
+  const RUNS = Number(process.env.FAIRNESS_RUNS || 5), CAP_MS = 45000;
   let deaths = 0; const patterns = [];
   for (let i = 0; i < RUNS; i++) {
     await page.evaluate(() => { if (window.__botTimer) clearInterval(window.__botTimer); window.__game.startRun(); window.__game.distance = 1450; });

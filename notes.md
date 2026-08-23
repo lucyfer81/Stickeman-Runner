@@ -119,3 +119,18 @@
 - Added a 0.12s jump buffer on the player: early airborne presses are remembered and fire automatically on touchdown (full dust/jump feedback, not a ghost step). Stale presses (>0.12s before landing) still expire unused; double-jump with Golden Kicks is unchanged.
 - TDD'd with a deterministic harness that arms presses at an exact predicted time-to-landing (computed per physics frame, immune to headless frame jitter): red (eaten at 86-90ms early), green after the fix; a 200-260ms-early stale press correctly does not auto-jump.
 - Re-ran the full verify suite (wall geometry on both viewports, 70s perfect-bot fairness run, console watch): all green.
+
+## Dev log — Fix pass 7 (top-5 #1): fairness at max difficulty
+
+**Problem (measured).** 10/10 perfect-bot runs died at 1504–1608m. Three stacked causes found via death-pattern forensics and a per-tick input timeline probe:
+1. `spawnWallDodge` stagger at max difficulty = 2.5z (62ms at speed 40).
+2. Cross-wave interleaving dropped action obstacles into escape lanes as little as ~4z (~0.1s) behind a wall; a spacing-guard leak could even produce 0.4z cross-wave pairs (a pushed obstacle landing in front of a later one the guard had skipped).
+3. **Slide-chain trap (mechanics):** two same-lane slide-gates 0.29s apart. First slide (0.72s) still active through the second gate's re-slide window; `startSlide` refused input while sliding → guaranteed death in the (0.72s, 0.85s) gap band, skill-independent. Timeline evidence: slide fired at t=19.98, gate#2 impact at t≈20.75, slide expired 20.70, crash on the next tick.
+
+**Fixes.**
+- `js/game.js`: obstacles now carry a `wave` id; `enforceWaveSpacing()` runs after each wave and enforces a speed-proportional minimum z-gap between cross-wave obstacles — `0.24s` base + `0.09s` per lane of lateral travel, `0.75s` for hurdle-first same-lane chains (jump occupies the lane) — iterating to a fixed point so pushes can't create new violations.
+- Wall-dodge stagger floor raised `2.5 → 3.5`z; double-wall branch's escape-lane gate now spawns `wallB + lerp(9,13,d)` instead of `ZFAR + rand(9,12)`.
+- `startSlide` re-arms a depleted slide (`slideTimer ≤ 0.4` refreshes to 0.72; a fresh slide is not restarted, preventing mash-spam). This deletes the deadly band: mashing slide now always works, matching player expectation.
+- `tests/qa.mjs`: perfect-bot oracle rewritten as a predictive policy (per-tick lane survival-time evaluation with transit taps through staggered wall pairs, fixed reaction leads 0.30s jump / 0.10s slide / 0.55s wall). It found three of its own oracle bugs along the way (nearest-any-lane masking, random lane pick into gates, paralysis on stagger pairs) — each documented by death patterns, not guessed.
+
+**Verification (Playwright).** `FAIRNESS_RUNS=10 npm run test:fairness`: **10/10 perfect-bot runs survive the full 45s window at seeded max difficulty (difficulty 1.0, speed ~40)**, distances consistent at cap (~1830–1850m vs 1504–1608 before). Fast suite: 4 pre-existing failures remain (fixes #2–#5 below), smoke clean, no console errors. Evidence: `evidence/fix1-maxdifficulty-fair.jpg`.

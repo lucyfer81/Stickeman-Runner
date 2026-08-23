@@ -23,15 +23,33 @@
       this.pausePlay = $('pausePlay');
       this.titleBest = $('titleBest');
       if (this.titleBest) this.titleBest.textContent = Math.floor(game.best).toLocaleString();
+      this.titleLevel = $('titleLevel');
+      this.titleBank = $('titleBank');
+      this.titleAch = $('titleAch');
+      this.touchHint = $('touchHint');
 
       this.finalScore = $('finalScore');
       this.finalDistance = $('finalDistance');
       this.finalCoins = $('finalCoins');
       this.finalBest = $('finalBest');
+      this.finalBank = $('finalBank');
       this.bestLabel = $('bestLabel');
       this.recordTag = $('recordTag');
+      this.recapLine = $('recapLine');
+      this.achLine = $('achLine');
+      this.xpText = $('xpText');
+      this.xpFill = $('xpFill');
 
       this.crashFlash = $('crashFlash');
+      this.updateTitleStats();
+    }
+
+    updateTitleStats() {
+      if (!this.game.meta) return;
+      const s = this.game.meta.stats();
+      if (this.titleLevel) this.titleLevel.textContent = `LV ${s.level}`;
+      if (this.titleBank) this.titleBank.textContent = s.coinBank.toLocaleString();
+      if (this.titleAch) this.titleAch.textContent = `${s.achievements.length}/${global.MetaSys.ACHIEVEMENTS.length} ★`;
     }
 
     startRun() {
@@ -44,10 +62,18 @@
       hint.classList.add('show');
       clearTimeout(this.hintTimeout);
       this.hintTimeout = setTimeout(() => hint.classList.remove('show'), 4200);
+      if (this.touchHint) {
+        const coarse = global.matchMedia && matchMedia('(pointer: coarse)').matches;
+        const showTouch = this.game.firstRun && coarse;
+        this.touchHint.classList.toggle('show', showTouch);
+        clearTimeout(this.touchHintTimeout);
+        if (showTouch) this.touchHintTimeout = setTimeout(() => this.touchHint.classList.remove('show'), 6000);
+      }
     }
 
     showTitle() {
       if (this.titleBest) this.titleBest.textContent = Math.floor(this.game.best).toLocaleString();
+      this.updateTitleStats();
       this.titleScreen.classList.remove('hidden');
       this.pauseScreen.classList.add('hidden');
       this.gameOverScreen.classList.add('hidden');
@@ -69,6 +95,27 @@
       this.bestLabel.textContent = data.isRecord ? 'NEW RECORD' : 'BEST';
       this.recordTag.classList.toggle('best-flash', data.isRecord);
       this.gameOverScreen.classList.toggle('new-record', data.isRecord);
+      if (this.recapLine) {
+        this.recapLine.textContent = data.recap || 'Run ended — jump hurdles, slide gates, dodge walls';
+      }
+      if (this.finalBank && typeof data.bank === 'number') {
+        this.finalBank.textContent = data.bank.toLocaleString();
+      }
+      const p = data.progress;
+      if (this.xpText && p) {
+        const into = Math.max(0, p.xp - p.levelFloor);
+        const span = Math.max(1, p.levelCeil - p.levelFloor);
+        this.xpText.textContent = `LV ${p.newLevel}${p.leveledUp ? ' — LEVEL UP!' : ''} · +${p.xpGained.toLocaleString()} XP`;
+        if (this.xpFill) this.xpFill.style.width = `${Math.round((into / span) * 100)}%`;
+      }
+      if (this.achLine) {
+        const total = data.achTotal || global.MetaSys.ACHIEVEMENTS.length;
+        const unlockedNow = p && p.unlocked.length ? p.unlocked.map((a) => a.name).join(', ') : null;
+        const count = this.game.meta ? this.game.meta.stats().achievements.length : 0;
+        this.achLine.textContent = unlockedNow
+          ? `★ New: ${unlockedNow} (${count}/${total})`
+          : `★ Achievements ${count}/${total}`;
+      }
     }
 
     showCrash() {

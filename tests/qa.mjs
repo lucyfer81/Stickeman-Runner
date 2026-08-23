@@ -281,7 +281,82 @@ for (const [name, opts] of viewports) {
   await d.ctx.close();
 }
 
-/* 6. fairness (opt-in, long) */
+/* 6. retention: onboarding, reward pacing, progression */
+{
+  const { ctx, page } = await newPage(browser, { w: 390, h: 844, touch: true, mobile: true });
+  const fresh = await page.evaluate(() => (window.__game.meta ? window.__game.meta.stats() : null));
+  check('fresh profile: first run, level 1, no achievements', !!fresh && fresh.runs === 0 && fresh.level === 1 && fresh.achievements.length === 0, JSON.stringify(fresh));
+  await page.click('#startButton');
+  await sleep(300);
+  check('first-run touch hint shows on mobile', await page.evaluate(() => { const el = document.getElementById('touchHint'); return !!el && el.classList.contains('show'); }));
+  await page.evaluate(() => { const g = window.__game; g.obstacles = []; g.spawnObstacle('hurdle', 0, 45); });
+  let tut = false;
+  await page.waitForFunction(() => window.__game.popups.some((p) => /JUMP!/.test(p.text)), null, { timeout: 5000 }).then(() => { tut = true; }).catch(() => {});
+  check('first-run tutorial prompt (JUMP!) appears with the first hurdle', tut);
+  await page.evaluate(() => { const g = window.__game; g.coins = 12; g.score = 5200; g.crash({ kind: 'hurdle', lane: 0 }); });
+  await page.waitForFunction(() => window.__game.state === 'gameover', null, { timeout: 5000 });
+  await page.screenshot({ path: path.join(EV, 'retention-gameover.jpg'), type: 'jpeg', quality: 70 });
+  const recap = await page.textContent('#recapLine').catch(() => '');
+  check('death recap names the killer and the counter', /hurdle/i.test(recap) && /jump/i.test(recap), recap);
+  const persisted = await page.evaluate(() => ({
+    bank: localStorage.getItem('sp-coinbank'),
+    xp: Number(localStorage.getItem('sp-xp')),
+    runs: Number(localStorage.getItem('sp-runs')),
+    ach: (() => { try { return JSON.parse(localStorage.getItem('sp-ach') || '[]'); } catch (e) { return null; } })()
+  }));
+  check('run recorded: coin bank, xp, run count, first-run achievement', persisted.bank === '12' && persisted.xp >= 520 && persisted.runs === 1 && Array.isArray(persisted.ach) && persisted.ach.includes('first-run'), JSON.stringify(persisted));
+  const xpTxt = await page.textContent('#xpText').catch(() => '');
+  const fill = await page.evaluate(() => { const el = document.getElementById('xpFill'); return el ? el.style.width : ''; }).catch(() => '');
+  check('game-over XP bar shows level + progress', /LV\s*2/i.test(xpTxt) && parseFloat(fill) > 0, `xpText="${xpTxt}" fill="${fill}"`);
+  const achLine = await page.textContent('#achLine').catch(() => '');
+  check('game-over lists unlocked achievement', /First Steps/.test(achLine), achLine);
+  await page.reload();
+  await page.waitForFunction(() => window.__game && window.__game.assetsReady, null, { timeout: 15000 });
+  check('returning player: not first run, bank restored', await page.evaluate(() => window.__game.meta && !window.__game.meta.isFirstRun() && window.__game.meta.stats().coinBank === 12));
+  await page.screenshot({ path: path.join(EV, 'retention-title.jpg'), type: 'jpeg', quality: 70 });
+  const titleStats = await page.evaluate(() => ({
+    bank: document.getElementById('titleBank') ? document.getElementById('titleBank').textContent : '',
+    level: document.getElementById('titleLevel') ? document.getElementById('titleLevel').textContent : '',
+    ach: document.getElementById('titleAch') ? document.getElementById('titleAch').textContent : ''
+  }));
+  check('title shows coin bank / level / achievement count', titleStats.bank === '12' && /2/.test(titleStats.level) && /1\/8/.test(titleStats.ach), JSON.stringify(titleStats));
+  await ctx.close();
+}
+
+{
+  const { ctx, page } = await newPage(browser, { w: 1440, h: 900 });
+  await page.click('#startButton');
+  await sleep(200);
+  await page.evaluate(() => { window.__game.distance = 149.5; });
+  await page.waitForFunction(() => window.__game.milestoneLevel === 1, null, { timeout: 5000 }).catch(() => {});
+  check('front-loaded 150m milestone fires', await page.evaluate(() => window.__game.milestoneLevel === 1 && window.__game.popups.some((p) => p.text.includes('150m'))));
+  await page.evaluate(() => { window.__game.startRun(); });
+  await sleep(150);
+  await page.evaluate(() => { const g = window.__game; g.distance = 130; g.spawnTimer = 0.01; g.nextSneakerTime = -1; });
+  await page.waitForFunction(() => window.__game.pickups.some((p) => p.kind === 'sneaker'), null, { timeout: 5000 }).catch(() => {});
+  check('golden kicks reachable from 120m', await page.evaluate(() => window.__game.pickups.some((p) => p.kind === 'sneaker')));
+  await page.evaluate(() => { window.__game.startRun(); });
+  await sleep(150);
+  await page.evaluate(() => { const g = window.__game; g.distance = 1460; g.pickups = []; g.popups = []; g.pickups.push({ kind: 'coin', lane: 0, z: 1, bob: 0, taken: false, baseZ: 1 }); });
+  await page.waitForFunction(() => window.__game.popups.some((p) => p.text === '+30'), null, { timeout: 5000 }).catch(() => {});
+  check('max-difficulty coin pays +30 (income scales with difficulty)', await page.evaluate(() => window.__game.popups.some((p) => p.text === '+30')));
+  await ctx.close();
+}
+
+{
+  const { ctx, page } = await newPage(browser, { w: 1440, h: 900 });
+  await page.evaluate(() => {
+    localStorage.setItem('sp-ach', '5');
+    localStorage.setItem('sp-xp', 'oops');
+    localStorage.setItem('sp-coinbank', 'null');
+  });
+  await page.reload();
+  await page.waitForFunction(() => window.__game && window.__game.assetsReady, null, { timeout: 15000 }).catch(() => {});
+  check('corrupt persistence values do not brick boot', await page.evaluate(() => !!(window.__game && window.__game.meta && window.__game.meta.stats())));
+  await ctx.close();
+}
+
+/* 7. fairness (opt-in, long) */
 if (process.argv.includes('--fairness')) {
   const { ctx, page } = await newPage(browser, { w: 1440, h: 900 });
   const RUNS = Number(process.env.FAIRNESS_RUNS || 5), CAP_MS = 45000;

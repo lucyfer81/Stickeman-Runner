@@ -34,6 +34,11 @@
       this.coins = 0;
       this.best = 0;
       try { this.best = Number(localStorage.getItem('sp-best') || 0); } catch (e) { /* ignore */ }
+      this.meta = new global.MetaSys();
+      this.firstRun = false;
+      this.tutorial = null;
+      this.gotKicks = false;
+      this.lastCrash = null;
 
       this.worldOffset = 0;
       this.speed = 15;
@@ -314,6 +319,10 @@
       this.popups = [];
       this.particles = [];
       this.player = this.resetPlayer();
+      this.firstRun = this.meta.isFirstRun();
+      this.tutorial = this.firstRun ? { hurdle: true, slideGate: true, wall: true } : null;
+      this.gotKicks = false;
+      this.lastCrash = null;
       this.ui.startRun();
     }
 
@@ -355,13 +364,30 @@
         this.best = this.score;
         try { localStorage.setItem('sp-best', String(this.best)); } catch (e) { /* ignore */ }
       }
+      const progress = this.meta.recordRun({
+        score: Math.floor(this.score),
+        distance: Math.floor(this.distance),
+        coins: this.coins,
+        kicks: this.gotKicks
+      });
       this.ui.showGameOver({
         score: Math.floor(this.score),
         distance: Math.floor(this.distance),
         coins: this.coins,
         best: Math.floor(this.best),
-        isRecord
+        isRecord,
+        recap: this.recapFor(this.lastCrash),
+        progress,
+        bank: this.meta.coinBank,
+        achTotal: global.MetaSys.ACHIEVEMENTS.length
       });
+    }
+
+    recapFor(kind) {
+      if (kind === 'hurdle') return 'You hit a hurdle — JUMP over these (SPACE / ↑ / swipe up)';
+      if (kind === 'slideGate') return 'You hit a slide gate — SLIDE under these (↓ / S / swipe down)';
+      if (kind === 'wall') return 'You hit a wall — CHANGE LANES (← → / swipe left-right)';
+      return null;
     }
 
     // ----------------------------------------------------------------- update
@@ -439,6 +465,7 @@
       this.updateWorldObjects(dt);
       this.updateCollisions();
       this.updateMilestones();
+      this.updateTutorial();
       this.updateAmbient(dt);
 
       if (p.grounded || p.sliding) this.spawnDust(p.sliding ? 2 : 1, p.sliding ? 0.35 : 0.16);
@@ -489,9 +516,21 @@
       this.spawnWave();
 
       this.nextSneakerTime -= interval * rand(0.82, 1.18) * 0.55;
-      if (this.nextSneakerTime <= 0 && this.player.sneakerTimer <= 0 && this.distance > 220) {
+      if (this.nextSneakerTime <= 0 && this.player.sneakerTimer <= 0 && this.distance > 120) {
         this.spawnSneaker();
         this.nextSneakerTime = rand(11, 18);
+      }
+    }
+
+    updateTutorial() {
+      if (!this.tutorial) return;
+      for (const ob of this.obstacles) {
+        if (!ob.tutorial || ob.z > 42 || ob.z < 6) continue;
+        ob.tutorial = false;
+        const prompt = ob.kind === 'hurdle' ? 'JUMP! ↑'
+          : ob.kind === 'slideGate' ? 'SLIDE! ↓'
+          : 'MOVE! ← →';
+        this.addPopup(prompt, this.cx, this.h * 0.42, '#eaf6ff', 1.6);
       }
     }
 
@@ -595,6 +634,8 @@
     }
 
     spawnObstacle(kind, lane, z) {
+      const tutorial = !!(this.tutorial && this.tutorial[kind]);
+      if (tutorial) this.tutorial[kind] = false;
       this.obstacles.push({
         kind,
         lane,
@@ -603,7 +644,8 @@
         smashed: false,
         nearMissGiven: false,
         spawnZ: z,
-        wave: this.waveId || 0
+        wave: this.waveId || 0,
+        tutorial
       });
     }
 
@@ -702,14 +744,16 @@
     collect(pk) {
       pk.taken = true;
       if (pk.kind === 'coin') {
+        const val = Math.round(15 * (1 + this.difficulty));
         this.coins += 1;
-        this.score += 15;
+        this.score += val;
         this.audio.coin();
         if (global.navigator && navigator.vibrate) navigator.vibrate(12);
-        this.addPopup('+15', this.project(pk.lane, 1).x, this.h * 0.52, '#ffd166', 0.55);
+        this.addPopup(`+${val}`, this.project(pk.lane, 1).x, this.h * 0.52, '#ffd166', 0.55);
         this.spawnBurst(this.project(pk.lane, 1).x, this.project(pk.lane, 1).y - this.depth * 0.06, '#ffd166', 8);
       } else if (pk.kind === 'sneaker') {
         const p = this.player;
+        this.gotKicks = true;
         p.sneakerTimer = 8;
         p.maxJumps = 2;
         this.score += 100;
@@ -718,29 +762,34 @@
         this.flash = 0.55;
         this.addPopup('GOLD KICKS!', this.cx, this.h * 0.28, '#ffd166', 1.4);
         this.spawnBurst(this.project(pk.lane, 1).x, this.project(pk.lane, 1).y, '#ffd166', 18);
+        const ach = this.meta.unlock('kicks');
+        if (ach) this.addPopup(`★ ${ach.name.toUpperCase()}`, this.cx, this.h * 0.2, '#8c5bff', 2);
       }
     }
 
     smashObstacle(ob) {
       ob.smashed = true;
       const pr = this.project(ob.lane, Math.max(0, ob.z));
-      this.score += 50;
+      const val = Math.round(50 * (1 + this.difficulty));
+      this.score += val;
       this.audio.smash();
       this.shake = Math.max(this.shake, 0.35);
-      this.addPopup('SMASH +50', pr.x, pr.y - this.depth * 0.3, '#ff5d8f', 0.8);
+      this.addPopup(`SMASH +${val}`, pr.x, pr.y - this.depth * 0.3, '#ff5d8f', 0.8);
       this.spawnBurst(pr.x, pr.y - this.depth * 0.2, '#ff5d8f', 16);
       this.spawnBurst(pr.x, pr.y - this.depth * 0.2, '#ffd166', 10);
     }
 
     addNearMiss(ob, label) {
       const pr = this.project(ob.lane, Math.max(0, ob.z));
-      this.score += 25;
+      const val = Math.round(25 * (1 + this.difficulty));
+      this.score += val;
       this.audio.nearMiss();
-      this.addPopup(`${label} +25`, pr.x, pr.y - this.depth * 0.34, '#4df3e0', 0.9);
+      this.addPopup(`${label} +${val}`, pr.x, pr.y - this.depth * 0.34, '#4df3e0', 0.9);
     }
 
     crash(ob) {
       const p = this.player;
+      this.lastCrash = ob ? ob.kind : null;
       p.crashed = true;
       p.crashT = 0;
       this.state = 'crashing';
@@ -765,17 +814,27 @@
     }
 
     updateMilestones() {
-      const next = Math.floor(this.distance / 500);
-      if (next > this.milestoneLevel) {
-        this.milestoneLevel = next;
-        const bonus = 100 * next;
+      const targets = this.milestoneTargets();
+      while (this.milestoneLevel < targets.length && this.distance >= targets[this.milestoneLevel]) {
+        this.milestoneLevel += 1;
+        const bonus = 100 * this.milestoneLevel;
         this.score += bonus;
         this.audio.milestone();
-        this.addPopup(`${next * 500}m  +${bonus}`, this.cx, this.h * 0.30, '#4df3e0', 1.6);
+        this.addPopup(`${targets[this.milestoneLevel - 1]}m  +${bonus}`, this.cx, this.h * 0.30, '#4df3e0', 1.6);
         for (let i = 0; i < 5; i++) {
           this.spawnFirework(this.w * (0.18 + Math.random() * 0.64), this.h * (0.12 + Math.random() * 0.18));
         }
       }
+    }
+
+    milestoneTargets() {
+      const t = [150, 300];
+      let v = 500;
+      while (t.length < 64) {
+        t.push(v);
+        v += 500;
+      }
+      return t;
     }
 
     updateAmbient(dt) {

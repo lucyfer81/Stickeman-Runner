@@ -235,19 +235,36 @@
   }
 
   function dodgeWallSVG() {
+    // Tall full-lane blocker: it must read as impossible to jump so players
+    // dodge sideways instead of leaping into a lethal lane-check.
     const defs = [];
     const id = 'dw';
     defs.push(linearGradient(id + 'a', [[0, '#8c5bff'], [100, '#ff5d8f']], 0, 0, 1, 1));
+    defs.push(linearGradient(id + 'b', [[0, '#ff5d8f'], [50, '#8c5bff'], [100, '#ff5d8f']], 0, 0, 1, 0));
     defs.push(...glowDef(id + 'f', '#8c5bff'));
     const c = [];
+    const chev = (cx, cy, dir) =>
+      el('path', {
+        d: `M${cx + dir * 14} ${cy - 20} L${cx - dir * 10} ${cy} L${cx + dir * 14} ${cy + 20}`,
+        stroke: '#ffd166', 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', fill: 'none', opacity: 0.95
+      });
     c.push(el('g', { filter: `url(#${id}f)` }, [
-      el('rect', { x: 18, y: 16, width: 144, height: 148, rx: 12, fill: '#171d36', stroke: `url(#${id}a)`, 'stroke-width': 7 }),
-      el('path', { d: 'M30 28 L150 152 M150 28 L30 152', stroke: '#8c5bff', 'stroke-width': 8, opacity: 0.9 }),
-      el('path', { d: 'M30 28 L150 28 M30 152 L150 152', stroke: '#ff5d8f', 'stroke-width': 6, opacity: 0.9 }),
-      el('circle', { cx: 90, cy: 90, r: 24, fill: 'none', stroke: '#ff5d8f', 'stroke-width': 7 }),
-      el('path', { d: 'M78 66 L102 114 M102 66 L78 114', stroke: '#fff', 'stroke-width': 8, 'stroke-linecap': 'round' })
+      // ground plinth
+      el('rect', { x: 12, y: 384, width: 126, height: 28, rx: 9, fill: '#10152b', stroke: `url(#${id}a)`, 'stroke-width': 5 }),
+      // main pillar
+      el('rect', { x: 30, y: 26, width: 90, height: 362, rx: 12, fill: '#171d36', stroke: `url(#${id}a)`, 'stroke-width': 7 }),
+      // hazard band: sideways chevrons — "go around"
+      el('rect', { x: 36, y: 168, width: 78, height: 96, rx: 8, fill: '#0e1326', opacity: 0.9 }),
+      chev(62, 190, -1), chev(62, 222, -1), chev(62, 254, -1),
+      chev(88, 190, 1), chev(88, 222, 1), chev(88, 254, 1),
+      // no-entry slash near the top
+      el('circle', { cx: 75, cy: 96, r: 30, fill: 'none', stroke: '#ff5d8f', 'stroke-width': 7 }),
+      el('path', { d: 'M54 75 L96 117', stroke: '#fff', 'stroke-width': 9, 'stroke-linecap': 'round' }),
+      // beacon cap
+      el('rect', { x: 34, y: 16, width: 82, height: 14, rx: 6, fill: `url(#${id}b)`, 'stroke-width': 0 }),
+      el('circle', { cx: 75, cy: 12, r: 8, fill: '#ff5d8f', stroke: '#ffd166', 'stroke-width': 3 })
     ]));
-    return svgWrap('0 0 180 185', 180, 185, defs, c);
+    return svgWrap('0 0 150 420', 150, 420, defs, c);
   }
 
   function coinSVG() {

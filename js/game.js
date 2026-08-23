@@ -14,7 +14,7 @@
   const OBSTACLE_DEFS = {
     hurdle:    { h: 0.30, ratio: 175 / 180, clearY: 0.28, anchor: 158 / 175 },
     slideGate: { h: 0.39, ratio: 180 / 185, anchor: 172 / 185 },
-    wall:      { h: 0.40, ratio: 180 / 185, anchor: 164 / 185 }
+    wall:      { h: 0.72, ratio: 150 / 420, anchor: 414 / 420 }
   };
   const LANES = [-1, 0, 1];
 
@@ -68,6 +68,7 @@
         maxJumps: 1,
         sliding: false,
         slideTimer: 0,
+        jumpBuffer: 0,
         runPhase: 0,
         lean: 0,
         sneakerTimer: 0,
@@ -185,6 +186,10 @@
         p.jumpsUsed += 1;
         this.spawnAirRing();
         if (!silent) this.audio.doubleJump();
+      } else {
+        // Pressed slightly too early while airborne: remember it briefly so
+        // the jump fires the instant we touch down instead of being eaten.
+        p.jumpBuffer = 0.12;
       }
     }
 
@@ -368,10 +373,16 @@
           p.grounded = true;
           p.jumpsUsed = 0;
           this.spawnDust(8);
+          if (p.jumpBuffer > 0) {
+            p.jumpBuffer = 0;
+            this.startJump();
+          }
         }
       } else {
         p.y = 0;
       }
+
+      if (p.jumpBuffer > 0) p.jumpBuffer -= dt;
 
       if (p.sliding) {
         p.slideTimer -= dt;
@@ -997,12 +1008,14 @@
         const pr = this.project(ob.lane, ob.z);
         const assetKey = ob.kind === 'wall' ? 'dodgeWall' : ob.kind;
         const h = def.h * this.depth * pr.scale;
-        const w = h * def.ratio;
+        // Walls fill their lane: width tracks lane spacing so the barrier reads
+        // as a full-lane blocker at every aspect ratio, unlike height-based ratios.
+        const w = ob.kind === 'wall' ? this.laneHalf * 0.95 * pr.spread : h * def.ratio;
         items.push({
           z: ob.z,
           draw: () => {
             this.drawGroundShadow(ctx, pr, w * 0.72, 0.30);
-            this.drawSprite(ctx, assetKey, pr, h, def.ratio, undefined, def.anchor);
+            this.drawSprite(ctx, assetKey, pr, h, def.ratio, undefined, def.anchor, w);
           }
         });
       }
@@ -1026,10 +1039,10 @@
       ctx.fill();
     }
 
-    drawSprite(ctx, key, pr, h, ratio, overrideY, anchor) {
+    drawSprite(ctx, key, pr, h, ratio, overrideY, anchor, explicitW) {
       const img = global.Assets.get(this.defs, key);
       if (!img) return;
-      const w = h * ratio;
+      const w = explicitW !== undefined ? explicitW : h * ratio;
       const x = pr.x;
       const y = overrideY !== undefined ? overrideY : pr.y - h * (anchor || 1);
       ctx.drawImage(img, x - w / 2, y, w, h);
@@ -1162,4 +1175,5 @@
   }
 
   global.Game = Game;
+  Game.OBSTACLE_DEFS = OBSTACLE_DEFS;
 })(window);

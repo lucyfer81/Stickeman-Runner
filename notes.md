@@ -46,3 +46,20 @@
 
 ## Tiny fix
 - Initial title screen now immediately shows the saved personal best, not just after a run.
+
+## Persona playtest pass (headless Chromium, Playwright)
+- Played the game as four personas (casual, hardcore, mobile, first-time) at 1440x900 and 390x844 (touch), with scripted perfect/casual bots, swipe/button probes, console capture and screenshots.
+- Findings that shaped the next fixes: dodge-walls were drawn at 0.92x the jump apex (209px vs 227px desktop) and 0.81x player height — visually jumpable but lethal on jump; an independent vision review of the screenshot also read them as "designed to be jumped". Perfect bot survived 1km+ (no unfair patterns below max difficulty); casual bot died at ~1.9km only in the max-difficulty wall+wall+hurdle combo. Console clean on all viewports; swipes and touch buttons all work; pause button is only 36px on mobile; jump presses shortly before landing are eaten (no input buffer).
+
+## Fix pass 5 — dodge-wall readability (top-impact issue)
+- Rebuilt the dodge-wall sprite as a tall full-lane pillar (viewBox 150x420): no-entry slash up top, yellow hazard chevrons pointing sideways ("go around"), beacon cap, ground plinth.
+- Raised `OBSTACLE_DEFS.wall` height 0.40 -> 0.72 of depth so the wall towers over both the runner (1.45x) and the jump apex (1.66x) on desktop and mobile.
+- Walls now size their width from lane spacing (`laneHalf * 0.95 * spread`) instead of a fixed sprite ratio, so the blocker fills its lane at every aspect ratio; `drawSprite` accepts an explicit width.
+- Exposed `Game.OBSTACLE_DEFS` for testability.
+- Verified with an automated suite (geometry assertions at collision z on both viewports, 70s perfect-bot fairness regression, console error watch, wall-approach screenshots): all green; vision review of the new screenshot reads the wall as clearly unjumpable and lane-contained with no rendering artifacts.
+
+## Fix pass 6 — jump input buffering (feel & fairness)
+- Problem measured: a jump pressed 50-120ms before landing was silently discarded (airborne, no double jump available) — the classic "my jump didn't register" death, worst on touch where latency eats into reaction timing.
+- Added a 0.12s jump buffer on the player: early airborne presses are remembered and fire automatically on touchdown (full dust/jump feedback, not a ghost step). Stale presses (>0.12s before landing) still expire unused; double-jump with Golden Kicks is unchanged.
+- TDD'd with a deterministic harness that arms presses at an exact predicted time-to-landing (computed per physics frame, immune to headless frame jitter): red (eaten at 86-90ms early), green after the fix; a 200-260ms-early stale press correctly does not auto-jump.
+- Re-ran the full verify suite (wall geometry on both viewports, 70s perfect-bot fairness run, console watch): all green.

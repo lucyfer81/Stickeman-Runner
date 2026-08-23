@@ -42,6 +42,14 @@ body {
   display: block;
   background: #0b1020;
 }
+/* Vignette as a composited CSS layer — replaces a per-frame fullscreen
+   canvas radial-gradient fill (was the most expensive render op). */
+#vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 130% 170% at 50% 50%, rgba(2,4,12,0) 42%, rgba(2,4,12,0.42) 100%);
+}
 
 /* ------------------------------------------------------------------------- */
 /* HUD                                                                        */

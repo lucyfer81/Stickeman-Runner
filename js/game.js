@@ -110,6 +110,79 @@
       this.jumpDuration = 0.62;
       this.gravity = (2 * this.maxJumpY) / ((this.jumpDuration / 2) ** 2);
       this.jumpVelocity = Math.sqrt(2 * this.gravity * this.maxJumpY);
+      this.bgDirty = true;
+    }
+
+    // The static background (sky/ground gradients, road surface, horizon glow,
+    // curbs) never changes between resizes, so it is rasterized once into an
+    // offscreen canvas instead of being re-filled with fullscreen gradients
+    // every frame — the single biggest per-frame cost in this game.
+    ensureBackdrop() {
+      if (!this.bgDirty) return;
+      if (!this.bg) this.bg = document.createElement('canvas');
+      this.bg.width = this.canvas.width;
+      this.bg.height = this.canvas.height;
+      const b = this.bg.getContext('2d');
+      const dpr = this.canvas.width / this.w;
+      b.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // sky
+      const sky = b.createLinearGradient(0, 0, 0, this.horizon + 4);
+      sky.addColorStop(0, '#050714');
+      sky.addColorStop(0.45, '#131b3d');
+      sky.addColorStop(0.8, '#3a2454');
+      sky.addColorStop(1, '#7a2f55');
+      b.fillStyle = sky;
+      b.fillRect(0, 0, this.w, this.horizon + 4);
+
+      // ground
+      const ground = b.createLinearGradient(0, this.horizon, 0, this.h);
+      ground.addColorStop(0, '#191c3a');
+      ground.addColorStop(0.45, '#10142a');
+      ground.addColorStop(1, '#080b18');
+      b.fillStyle = ground;
+      b.fillRect(0, this.horizon, this.w, this.h - this.horizon);
+
+      // road slab
+      const halfTop = this.laneHalf * 1.52 * 0.055;
+      const halfBottom = this.laneHalf * 1.52 * 1.16;
+      const yBottom = this.h + 40;
+      b.beginPath();
+      b.moveTo(this.cx - halfTop, this.horizon);
+      b.lineTo(this.cx - halfBottom, yBottom);
+      b.lineTo(this.cx + halfBottom, yBottom);
+      b.lineTo(this.cx + halfTop, this.horizon);
+      b.closePath();
+      const road = b.createLinearGradient(0, this.horizon, 0, yBottom);
+      road.addColorStop(0, '#20264c');
+      road.addColorStop(0.3, '#181d3c');
+      road.addColorStop(1, '#0d1126');
+      b.fillStyle = road;
+      b.fill();
+      b.strokeStyle = 'rgba(77,243,224,0.5)';
+      b.lineWidth = 2;
+      b.stroke();
+
+      // neon horizon line
+      const g = b.createLinearGradient(0, this.horizon, 0, this.horizon + 8);
+      g.addColorStop(0, 'rgba(77,243,224,0.05)');
+      g.addColorStop(0.5, 'rgba(77,243,224,0.55)');
+      g.addColorStop(1, 'rgba(77,243,224,0.05)');
+      b.fillStyle = g;
+      b.fillRect(0, this.horizon - 1, this.w, 7);
+
+      // curbs
+      b.strokeStyle = 'rgba(255,93,143,0.75)';
+      b.lineWidth = 2.5;
+      for (const side of [-1.52, 1.52]) {
+        const pNear = this.project(side, 0.5);
+        const pFar = this.project(side, ZFAR);
+        b.beginPath();
+        b.moveTo(pNear.x, pNear.y);
+        b.lineTo(pFar.x, pFar.y);
+        b.stroke();
+      }
+      this.bgDirty = false;
     }
 
     startLoop() {
@@ -885,20 +958,31 @@
     // ----------------------------------------------------------------- render
     render() {
       const ctx = this.ctx;
+      this.ensureBackdrop();
       ctx.clearRect(0, 0, this.w, this.h);
       ctx.save();
       if (this.shake > 0) {
         ctx.translate(rand(-1, 1) * this.shake * 12, rand(-1, 1) * this.shake * 9);
       }
-      this.drawSky(ctx);
+      // one blit for all static fullscreen gradients
+      ctx.drawImage(this.bg, 0, 0, this.w, this.h);
+      // sky layers are clipped to the above-horizon band: sun and skyline
+      // sprites overhang the horizon, and the ground must cover them (the
+      // backdrop already paints the ground, so clip instead of re-filling)
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, this.w, this.horizon + 1);
+      ctx.clip();
+      this.drawStars(ctx);
+      this.drawSunClouds(ctx);
       this.drawSkyline(ctx);
-      this.drawRoad(ctx);
+      ctx.restore();
+      this.drawRoadMarks(ctx);
       this.drawPigeons(ctx);
       this.drawWorld(ctx);
       this.drawPlayer(ctx);
       this.drawParticles(ctx);
       this.drawPopups(ctx);
-      this.drawVignette(ctx);
       if (this.flash > 0) {
         ctx.fillStyle = `rgba(255, 230, 180, ${this.flash * 0.25})`;
         ctx.fillRect(-20, -20, this.w + 40, this.h + 40);
@@ -906,16 +990,7 @@
       ctx.restore();
     }
 
-    drawSky(ctx) {
-      const g = ctx.createLinearGradient(0, 0, 0, this.horizon + 4);
-      g.addColorStop(0, '#050714');
-      g.addColorStop(0.45, '#131b3d');
-      g.addColorStop(0.8, '#3a2454');
-      g.addColorStop(1, '#7a2f55');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, this.w, this.horizon + 4);
-
-      // stars
+    drawStars(ctx) {
       ctx.fillStyle = 'rgba(234,246,255,0.8)';
       for (let i = 0; i < 26; i++) {
         const sx = ((i * 97 + 31) % 1000) / 1000 * this.w;
@@ -925,7 +1000,9 @@
         ctx.fillRect(sx, sy, 1.6, 1.6);
       }
       ctx.globalAlpha = 1;
+    }
 
+    drawSunClouds(ctx) {
       const sun = global.Assets.get(this.defs, 'sun');
       if (sun) {
         const sw = Math.min(this.w * 0.4, this.h * 0.34);
@@ -950,45 +1027,10 @@
       ctx.globalAlpha = 0.95;
       ctx.drawImage(img, 0, this.horizon - h * 0.78, w, h);
       ctx.globalAlpha = 1;
-      // Neon horizon line
-      const g = ctx.createLinearGradient(0, this.horizon, 0, this.horizon + 8);
-      g.addColorStop(0, 'rgba(77,243,224,0.05)');
-      g.addColorStop(0.5, 'rgba(77,243,224,0.55)');
-      g.addColorStop(1, 'rgba(77,243,224,0.05)');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, this.horizon - 1, this.w, 7);
     }
 
-    drawRoad(ctx) {
-      const ground = ctx.createLinearGradient(0, this.horizon, 0, this.h);
-      ground.addColorStop(0, '#191c3a');
-      ground.addColorStop(0.45, '#10142a');
-      ground.addColorStop(1, '#080b18');
-      ctx.fillStyle = ground;
-      ctx.fillRect(0, this.horizon, this.w, this.h - this.horizon);
-
-      const halfTop = this.laneHalf * 1.52 * 0.055;
-      const halfBottom = this.laneHalf * 1.52 * 1.16;
-      const yTop = this.horizon;
-      const yBottom = this.h + 40;
-
-      ctx.beginPath();
-      ctx.moveTo(this.cx - halfTop, yTop);
-      ctx.lineTo(this.cx - halfBottom, yBottom);
-      ctx.lineTo(this.cx + halfBottom, yBottom);
-      ctx.lineTo(this.cx + halfTop, yTop);
-      ctx.closePath();
-      const road = ctx.createLinearGradient(0, yTop, 0, yBottom);
-      road.addColorStop(0, '#20264c');
-      road.addColorStop(0.3, '#181d3c');
-      road.addColorStop(1, '#0d1126');
-      ctx.fillStyle = road;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(77,243,224,0.5)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // horizontal speed stripes
+    drawRoadMarks(ctx) {
+      // horizontal speed stripes (scrolling)
       const spacing = 8;
       const scroll = this.worldOffset % spacing;
       ctx.lineCap = 'round';
@@ -1005,7 +1047,7 @@
         ctx.stroke();
       }
 
-      // lane separators
+      // lane separators (scrolling)
       const boundaries = [-0.5, 0.5];
       ctx.lineCap = 'butt';
       for (const b of boundaries) {
@@ -1022,18 +1064,6 @@
           ctx.lineTo(p2.x, p2.y);
           ctx.stroke();
         }
-      }
-
-      // curbs
-      for (const side of [-1.52, 1.52]) {
-        const pNear = this.project(side, 0.5);
-        const pFar = this.project(side, ZFAR);
-        ctx.strokeStyle = 'rgba(255,93,143,0.75)';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(pNear.x, pNear.y);
-        ctx.lineTo(pFar.x, pFar.y);
-        ctx.stroke();
       }
     }
 
@@ -1216,13 +1246,6 @@
       ctx.globalAlpha = 1;
     }
 
-    drawVignette(ctx) {
-      const g = ctx.createRadialGradient(this.cx, this.h * 0.5, this.h * 0.25, this.cx, this.h * 0.5, this.h * 0.85);
-      g.addColorStop(0, 'rgba(0,0,0,0)');
-      g.addColorStop(1, 'rgba(2,4,12,0.42)');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, this.w, this.h);
-    }
   }
 
   global.Game = Game;

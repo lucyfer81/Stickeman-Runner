@@ -142,3 +142,13 @@
 **Fix.** Dedicated `restart` action (`js/game.js` `input()`: restarts from running/paused/gameover) and `js/main.js` binds `pauseRestartButton` to it. Keyboard resume paths (Esc/P toggle, Space/Enter-while-paused) are untouched.
 
 **Verification (Playwright).** Suite check `pause Restart starts a fresh run` green (state `running`, distance < 10m). Dedicated probe: Esc→pause→Esc→resume ✓, Space-while-paused resumes ✓, Restart from pause → distance 2.1m, difficulty 0, obstacles cleared, overlay hidden ✓, zero page errors. Evidence: `evidence/fix2-pause-restart-fresh-run.jpg`.
+
+## Dev log — Fix pass 9 (top-5 #3): cache static fullscreen gradients
+
+**Problem (measured).** ~6 fullscreen gradient fills were created and rasterized every frame (sky, ground, road, horizon glow, vignette + clearRect). Gradient-only canvas baseline in the same shell: 23fps (blank rAF: 60). Full game: 12fps @1440×900×2dpr, ~30–36fps @390×844×2dpr — the dominant per-frame cost, and a realistic low-end-GPU preview.
+
+**Fix.** Static background (sky gradient, ground gradient, road slab, neon horizon line, curbs) is now rasterized once per resize into an offscreen canvas (`ensureBackdrop`, rebuilt on `bgDirty`); each frame is a single `drawImage` blit (which also covers the whole frame, so `clearRect` is gone). Vignette moved to a composited CSS overlay (`#vignette`), replacing the most expensive canvas op. Dynamic layers (stars, sun, clouds, skyline, scrolling stripes/separators, sprites, particles) unchanged.
+
+**Verification (Playwright).** FPS: mobile 36→**57.3** (+59%, suite floor 45 now green), desktop 12→**21** (+75%, floor 20 green) in the software-rendered shell; smoke green on all 5 viewports, no console errors. Pixel parity probes: sky sample [6,8,23] vs #050714, road [14,18,41] vs #0d1126, skyline/ground samples in family, backdrop cache confirmed (`bg` exists, `bgDirty=false` after first frame), CSS vignette present (corner luminance 10.0 vs center 30.6). Evidence: `evidence/fix3-cached-backdrop.jpg`.
+
+**Post-review correction (blocker caught by reviewer pass).** The first version of this fix regressed the horizon band: the old code's opaque ground fill used to hide the sun/skyline overhang below the horizon, and the blitted backdrop lost that cover (sun bottom + building bases visibly overlapped the road). Fixed by clipping the dynamic sky layers (stars/sun/clouds/skyline) to the above-horizon band and restoring a single cheap `clearRect` for shake-edge parity. Re-verified with an overhang-band pixel probe: just-below-horizon samples now read road-top colors ([31,37,75] ≈ #20264c) on both 1440×900 and 390×844 — no sun/building bleed; FPS unchanged (desktop 23.6, mobile 60.4).

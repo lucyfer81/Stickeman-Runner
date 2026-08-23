@@ -137,6 +137,11 @@
         else if (this.state === 'paused') this.resumeGame();
         return;
       }
+      if (action === 'restart') {
+        // Explicit restart must never be swallowed by pause-resume handling.
+        if (this.state === 'running' || this.state === 'paused' || this.state === 'gameover') this.startRun();
+        return;
+      }
       if (this.state === 'paused' && (action === 'jump' || action === 'start')) {
         this.resumeGame();
         return;

@@ -134,3 +134,11 @@
 - `tests/qa.mjs`: perfect-bot oracle rewritten as a predictive policy (per-tick lane survival-time evaluation with transit taps through staggered wall pairs, fixed reaction leads 0.30s jump / 0.10s slide / 0.55s wall). It found three of its own oracle bugs along the way (nearest-any-lane masking, random lane pick into gates, paralysis on stagger pairs) — each documented by death patterns, not guessed.
 
 **Verification (Playwright).** `FAIRNESS_RUNS=10 npm run test:fairness`: **10/10 perfect-bot runs survive the full 45s window at seeded max difficulty (difficulty 1.0, speed ~40)**, distances consistent at cap (~1830–1850m vs 1504–1608 before). Fast suite: 4 pre-existing failures remain (fixes #2–#5 below), smoke clean, no console errors. Evidence: `evidence/fix1-maxdifficulty-fair.jpg`.
+
+## Dev log — Fix pass 8 (top-5 #2): pause Restart now restarts
+
+**Problem (measured).** Pause screen "Restart" resumed the run instead of restarting it: `pauseRestartButton` emitted `start`, and `input()` maps `start`-while-paused to resume. Distance probe: pause at 29.25m → click Restart → run continued 29.25→35.25m.
+
+**Fix.** Dedicated `restart` action (`js/game.js` `input()`: restarts from running/paused/gameover) and `js/main.js` binds `pauseRestartButton` to it. Keyboard resume paths (Esc/P toggle, Space/Enter-while-paused) are untouched.
+
+**Verification (Playwright).** Suite check `pause Restart starts a fresh run` green (state `running`, distance < 10m). Dedicated probe: Esc→pause→Esc→resume ✓, Space-while-paused resumes ✓, Restart from pause → distance 2.1m, difficulty 0, obstacles cleared, overlay hidden ✓, zero page errors. Evidence: `evidence/fix2-pause-restart-fresh-run.jpg`.

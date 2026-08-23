@@ -204,8 +204,13 @@ for (const [name, opts] of viewports) {
   const after = await page.evaluate(() => ({ d: window.__game.distance, s: window.__game.state }));
   check('pause Restart starts a fresh run', after.s === 'running' && after.d < 10, `state=${after.s} distance=${after.d.toFixed(1)}`);
   // game over flow: steer into the next obstacle's lane and wait for the crash
-  await page.evaluate(() => { window.__game.player.targetLane = window.__game.obstacles[0]?.lane ?? 0; });
-  await page.waitForFunction(() => window.__game.state === 'gameover', null, { timeout: 30000 });
+  try {
+    await page.waitForFunction(() => window.__game.obstacles.length > 0 && window.__game.obstacles[0].z < 40, null, { timeout: 20000 });
+    await page.evaluate(() => { window.__game.player.targetLane = window.__game.obstacles[0].lane; });
+    await page.waitForFunction(() => window.__game.state === 'gameover', null, { timeout: 30000 });
+  } catch (e) {
+    check('game-over flow completes', false, `timeout: ${e.message.split('\n')[0]}`);
+  }
   await page.screenshot({ path: path.join(EV, 'flow-gameover.jpg'), type: 'jpeg', quality: 70 });
   await page.click('#runAgainButton');
   await sleep(800);

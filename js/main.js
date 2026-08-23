@@ -155,7 +155,7 @@
 
       // Buttons -------------------------------------------------------------------
       this.bindButton('startButton', 'start');
-      this.bindButton('pauseRestartButton', 'start');
+      this.bindButton('pauseRestartButton', 'restart');
       this.bindButton('runAgainButton', 'start');
       this.bindButton('resumeButton', 'pause');
       this.bindButton('menuButton', 'menu');
